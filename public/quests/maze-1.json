@@ -3,7 +3,7 @@
     "gameType": "maze",
     "level": 1,
     "titleKey": "Games.maze",
-    "descriptionKey": "Maze.helpStack",
+    "descriptionKey": "Complete the maze by moving forward and turning left or right.",
     "blocklyConfig": {
       "toolbox": {
         "kind": "flyoutToolbox",
