@@ -4,9 +4,8 @@ import Interpreter from 'js-interpreter';
 import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig } from '../../types';
 import type { MazeGameState, Direction, ResultType } from './types';
 
-// Constants from the original game
 const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
-const EXECUTION_TIMEOUT_TICKS = 10000; // Prevent infinite loops
+const EXECUTION_TIMEOUT_TICKS = 10000;
 
 export class MazeEngine implements IGameEngine {
   private readonly map: number[][];
@@ -31,20 +30,12 @@ export class MazeEngine implements IGameEngine {
     };
   }
 
-  /**
-   * Main execution method. Runs user code in a sandboxed interpreter.
-   * @param userCode The JavaScript code generated from Blockly blocks.
-   * @returns A log of game states representing the execution trace.
-   */
   execute(userCode: string): GameState[] {
     this.currentState = this.getInitialState();
     this.log = [this.getInitialState()];
 
     const initApi = (interpreter: any, globalObject: any) => {
-      const wrapper = (func: (...args: any[]) => any) => {
-        return interpreter.createNativeFunction(func.bind(this));
-      };
-
+      const wrapper = (func: (...args: any[]) => any) => interpreter.createNativeFunction(func.bind(this));
       interpreter.setProperty(globalObject, 'moveForward', wrapper(this.moveForward));
       interpreter.setProperty(globalObject, 'turnLeft', wrapper(this.turnLeft));
       interpreter.setProperty(globalObject, 'turnRight', wrapper(this.turnRight));
@@ -60,16 +51,18 @@ export class MazeEngine implements IGameEngine {
     try {
       let ticks = EXECUTION_TIMEOUT_TICKS;
       while (interpreter.step()) {
-        if (ticks-- <= 0) {
-          throw new Error('Timeout');
-        }
+        if (ticks-- <= 0) throw new Error('Timeout');
       }
       result = this.notDone() ? 'failure' : 'success';
     } catch (e: any) {
       result = e.message === 'Timeout' ? 'timeout' : 'error';
     }
     
-    // Update and log the final state
+    // If the player succeeded, add the victory animation frames to the log
+    if (result === 'success') {
+      this.logVictoryAnimation();
+    }
+    
     this.currentState.isFinished = true;
     this.currentState.result = result;
     this.log.push(JSON.parse(JSON.stringify(this.currentState)));
@@ -82,18 +75,15 @@ export class MazeEngine implements IGameEngine {
     return state.player.x === this.finish.x && state.player.y === this.finish.y;
   }
 
-  // --- Engine's Internal API (exposed to the interpreter) ---
+  // --- Engine's Internal API ---
 
   private moveForward(): void {
-    if (!this.isPath(0)) {
-        // Hitting a wall is a runtime error that stops execution.
-        throw new Error('Hit a wall');
-    }
+    if (!this.isPath(0)) throw new Error('Hit a wall');
     const { player } = this.currentState;
-    if (player.direction === 0) player.y--; // North
-    else if (player.direction === 1) player.x++; // East
-    else if (player.direction === 2) player.y++; // South
-    else if (player.direction === 3) player.x--; // West
+    if (player.direction === 0) player.y--;
+    else if (player.direction === 1) player.x++;
+    else if (player.direction === 2) player.y++;
+    else if (player.direction === 3) player.x--;
     this.logState();
   }
 
@@ -107,18 +97,13 @@ export class MazeEngine implements IGameEngine {
     this.logState();
   }
 
-  /**
-   * Checks if there is a path in a relative direction.
-   * @param relativeDirection 0: forward, 1: right, 3: left.
-   */
   private isPath(relativeDirection: 0 | 1 | 3): boolean {
     const effectiveDirection = this.constrainDirection(this.currentState.player.direction + relativeDirection);
     let { x, y } = this.currentState.player;
-    if (effectiveDirection === 0) y--; // North
-    else if (effectiveDirection === 1) x++; // East
-    else if (effectiveDirection === 2) y++; // South
-    else if (effectiveDirection === 3) x--; // West
-
+    if (effectiveDirection === 0) y--;
+    else if (effectiveDirection === 1) x++;
+    else if (effectiveDirection === 2) y++;
+    else if (effectiveDirection === 3) x--;
     const square = this.map[y] && this.map[y][x];
     return square !== SquareType.WALL && square !== undefined;
   }
@@ -130,8 +115,19 @@ export class MazeEngine implements IGameEngine {
   // --- Helper Methods ---
 
   private logState(): void {
-    // Push a deep copy of the current state to the log
     this.log.push(JSON.parse(JSON.stringify(this.currentState)));
+  }
+  
+  // ADDED: Helper to append victory animation frames
+  private logVictoryAnimation(): void {
+    this.currentState.player.pose = 'victory1';
+    this.logState();
+    this.currentState.player.pose = 'victory2';
+    this.logState();
+    this.currentState.player.pose = 'victory1';
+    this.logState();
+    delete this.currentState.player.pose; // Return to normal pose
+    this.logState();
   }
 
   private constrainDirection(d: number): Direction {

@@ -5,7 +5,6 @@ import type { IGameRenderer, MazeConfig } from '../../types';
 import type { MazeGameState, Direction } from './types';
 import './Maze.css';
 
-// Constants for rendering, adapted from the original game
 const SQUARE_SIZE = 50;
 const PEGMAN_WIDTH = 49;
 const PEGMAN_HEIGHT = 52;
@@ -17,7 +16,12 @@ const DIRECTION_TO_FRAME_MAP: Record<Direction, number> = {
   0: 8, 1: 4, 2: 0, 3: 12,
 };
 
-// Logic adapted from the original maze/src/main.js to calculate tile shapes
+// ADDED: Map for special animation poses to spritesheet frames
+const POSE_TO_FRAME_MAP: Record<string, number> = {
+  'victory1': 16, // From original game's scheduleFinish function
+  'victory2': 18,
+};
+
 const TILE_SHAPES: Record<string, [number, number]> = {
   '10010': [4, 0],  '10001': [3, 3],  '11000': [0, 1],  '10100': [0, 2],
   '11010': [4, 1],  '10101': [3, 2],  '10110': [0, 0],  '10011': [2, 0],
@@ -36,10 +40,8 @@ const getTileStyle = (mapData: number[][], x: number, y: number): React.CSSPrope
   };
 
   let tileShape = normalize(x, y) +
-    normalize(x, y - 1) + // North
-    normalize(x + 1, y) + // East
-    normalize(x, y + 1) + // South
-    normalize(x - 1, y);  // West
+    normalize(x, y - 1) + normalize(x + 1, y) +
+    normalize(x, y + 1) + normalize(x - 1, y);
 
   if (!TILE_SHAPES[tileShape]) {
     if (tileShape === '00000' && Math.random() > 0.3) {
@@ -50,11 +52,7 @@ const getTileStyle = (mapData: number[][], x: number, y: number): React.CSSPrope
   }
   const [left, top] = TILE_SHAPES[tileShape];
   
-  // This style slides the entire spritesheet inside the viewport
-  return {
-    left: `-${left * SQUARE_SIZE}px`,
-    top: `-${top * SQUARE_SIZE}px`,
-  };
+  return { left: `-${left * SQUARE_SIZE}px`, top: `-${top * SQUARE_SIZE}px` };
 };
 
 const MazeMap = React.memo(({ mapData }: { mapData: number[][] }) => {
@@ -65,10 +63,7 @@ const MazeMap = React.memo(({ mapData }: { mapData: number[][] }) => {
           <div
             key={`${x}-${y}`}
             className="mapCell"
-            style={{
-              left: `${x * SQUARE_SIZE}px`,
-              top: `${y * SQUARE_SIZE}px`,
-            }}
+            style={{ left: `${x * SQUARE_SIZE}px`, top: `${y * SQUARE_SIZE}px` }}
           >
             <div className="tileImage" style={getTileStyle(mapData, x, y)} />
           </div>
@@ -84,7 +79,14 @@ export const Maze2DRenderer: IGameRenderer = ({ gameState, gameConfig }) => {
 
   if (!state || !config) return null;
 
-  const frame = DIRECTION_TO_FRAME_MAP[state.player.direction];
+  let frame: number;
+  // FIXED: Check for a special pose first, otherwise use direction
+  if (state.player.pose && POSE_TO_FRAME_MAP[state.player.pose] !== undefined) {
+    frame = POSE_TO_FRAME_MAP[state.player.pose];
+  } else {
+    frame = DIRECTION_TO_FRAME_MAP[state.player.direction];
+  }
+
   const pegmanStyle: React.CSSProperties = {
     left: `${state.player.x * SQUARE_SIZE + (SQUARE_SIZE - PEGMAN_WIDTH) / 2}px`,
     top: `${state.player.y * SQUARE_SIZE + (SQUARE_SIZE - PEGMAN_HEIGHT) / 2}px`,

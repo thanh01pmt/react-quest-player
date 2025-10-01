@@ -21,20 +21,6 @@ interface DialogState {
   message: string;
 }
 
-// ADDED: Small sub-component for the description
-const QuestDescription: React.FC<{ descriptionKey: string }> = ({ descriptionKey }) => {
-  const style: React.CSSProperties = {
-    padding: '10px',
-    borderBottom: '1px solid var(--border-color)',
-    backgroundColor: 'var(--background-color)',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  };
-  // We'll replace this with a proper i18n lookup later
-  return <div style={style}>Task: {descriptionKey}</div>;
-};
-
-
 export const QuestPlayer: React.FC = () => {
   const [questData, setQuestData] = useState<Quest | null>(null);
   const [importError, setImportError] = useState<string>('');
@@ -55,7 +41,7 @@ export const QuestPlayer: React.FC = () => {
   });
   const [blockCount, setBlockCount] = useState(0);
 
-  // Load and initialize game modules when a new quest is loaded
+  // Load and initialize game modules
   useEffect(() => {
     if (!questData) {
       setGameEngine(null);
@@ -159,13 +145,15 @@ export const QuestPlayer: React.FC = () => {
       </Dialog>
       <div style={{ display: 'flex' }}>
         <div style={{ width: '450px' }}>
-          {/* ADDED: Description display */}
-          {questData && <QuestDescription descriptionKey={questData.descriptionKey} />}
           {questData ? (
             <Visualization
               GameRenderer={GameRenderer}
               gameState={currentGameState}
               gameConfig={questData.gameConfig}
+              // FIXED: Pass overlay data down
+              blockCount={blockCount}
+              maxBlocks={maxBlocks}
+              descriptionKey={questData.descriptionKey}
             />
           ) : (
             <EmptyState inColumn="viz" />
@@ -179,11 +167,7 @@ export const QuestPlayer: React.FC = () => {
                 </>
               )}
             </div>
-            {maxBlocks && isFinite(maxBlocks) && (
-              <div style={{ fontFamily: 'monospace' }}>
-                Blocks: {blockCount} / {maxBlocks}
-              </div>
-            )}
+            {/* REMOVED: Block count display is now an overlay */}
             <div>
               <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
             </div>

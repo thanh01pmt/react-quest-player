@@ -21,6 +21,7 @@ export interface MazeGameState extends GameState {
     x: number;
     y: number;
     direction: Direction;
+    pose?: string; // ADDED: For special animations like victory dance
   };
   result: ResultType;
   isFinished: boolean;
