@@ -1,11 +1,14 @@
 // src/components/QuestPlayer/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
+import * as Blockly from 'blockly/core';
+import { javascriptGenerator } from 'blockly/javascript';
+import { BlocklyWorkspace } from 'react-blockly';
 import type { Quest, GameEngineConstructor, IGameEngine, GameState, IGameRenderer } from '../../types';
-import { BlocklyWorkspace, type BlocklyWorkspaceHandle } from '../BlocklyWorkspace';
 import { Visualization } from '../Visualization';
 import { initializeGame } from '../../games/GameBlockManager';
 import '../../App.css';
+import './QuestPlayer.css';
 
 interface QuestPlayerProps {
   questId: string;
@@ -14,23 +17,20 @@ interface QuestPlayerProps {
 type PlayerStatus = 'idle' | 'running' | 'finished';
 
 export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
-  // Quest and module loading state
   const [questData, setQuestData] = useState<Quest | null>(null);
   const [GameEngine, setGameEngine] = useState<GameEngineConstructor | null>(null);
   const [GameRenderer, setGameRenderer] = useState<IGameRenderer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Game instance and execution state
   const gameEngine = useRef<IGameEngine | null>(null);
-  const workspaceRef = useRef<BlocklyWorkspaceHandle>(null); // FIXED: Define the ref
+  const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
   const [executionLog, setExecutionLog] = useState<GameState[] | null>(null);
   const [currentGameState, setCurrentGameState] = useState<GameState | null>(null);
   
   const frameIndex = useRef(0);
 
-  // Load quest data from JSON
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -45,13 +45,10 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
       .finally(() => setLoading(false));
   }, [questId]);
 
-  // Load and initialize game-specific modules
   useEffect(() => {
     if (!questData) return;
-
     const gameType = questData.gameType;
     let isMounted = true;
-
     const init = async () => {
       try {
         await initializeGame(gameType);
@@ -64,12 +61,10 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
         if (isMounted) setError(`Could not load game module for ${gameType}.`);
       }
     };
-
     init();
     return () => { isMounted = false; };
   }, [questData]);
   
-  // Instantiate the engine
   useEffect(() => {
     if (GameEngine && questData) {
       const engine = new GameEngine(questData.gameConfig);
@@ -80,12 +75,8 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
     }
   }, [GameEngine, questData]);
 
-  // The main animation loop effect
   useEffect(() => {
-    if (playerStatus !== 'running' || !executionLog) {
-      return;
-    }
-
+    if (playerStatus !== 'running' || !executionLog) return;
     const intervalId = setInterval(() => {
       const nextIndex = frameIndex.current + 1;
       if (nextIndex >= executionLog.length) {
@@ -96,20 +87,15 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
         setCurrentGameState(executionLog[nextIndex]);
       }
     }, 150);
-
     return () => clearInterval(intervalId);
   }, [playerStatus, executionLog]);
 
-
-  if (loading) return <div>Loading Quest...</div>;
+  if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
-  // FIXED: handleRun no longer takes a parameter
   const handleRun = () => {
-    if (!gameEngine.current || playerStatus === 'running' || !workspaceRef.current) return;
-    
-    const userCode = workspaceRef.current.getCode(); // Get code via ref
-    
+    if (!gameEngine.current || !workspaceRef.current || playerStatus === 'running') return;
+    const userCode = javascriptGenerator.workspaceToCode(workspaceRef.current);
     frameIndex.current = 0;
     const log = gameEngine.current.execute(userCode);
     setExecutionLog(log);
@@ -125,25 +111,31 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
     setPlayerStatus('idle');
   }
 
+  // DEBUG: Simplified layout with fixed dimensions
   return (
-    <div className="appContainer">
-      <div className="visualizationColumn">
+    <div style={{ display: 'flex' }}>
+      <div style={{ width: '450px' }}>
         <Visualization
           GameRenderer={GameRenderer}
           gameState={currentGameState}
           gameConfig={questData?.gameConfig ?? null}
         />
-        <div className="controlsArea">
-          <button className="primaryButton" onClick={handleRun}>Run Program</button>
+        <div>
+          <button className="primaryButton" onClick={handleRun}>Run</button>
           <button className="primaryButton" onClick={handleReset}>Reset</button>
         </div>
       </div>
-      <div className="blocklyColumn">
+      <div style={{ height: '800px', width: '800px', border: '1px solid red' }}>
         {GameEngine && questData ? (
           <BlocklyWorkspace
-            ref={workspaceRef} // FIXED: Pass the ref down
             key={questId}
-            blocklyConfig={questData.blocklyConfig}
+            className="fill-container"
+            toolboxConfiguration={questData.blocklyConfig.toolbox}
+            initialXml={questData.blocklyConfig.startBlocks}
+            workspaceConfiguration={{}}
+            onWorkspaceChange={(workspace) => {
+              workspaceRef.current = workspace;
+            }}
           />
         ) : (
           <div>Initializing...</div>

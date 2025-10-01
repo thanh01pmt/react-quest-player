@@ -30,6 +30,7 @@ body {
   color: var(--text-color);
 }
 
+/* --- Main App Layout --- */
 .appContainer {
   display: flex;
   height: 100vh;
@@ -51,15 +52,10 @@ body {
   background-color: var(--background-color);
 }
 
-/* --- Blockly Column --- */
 .blocklyColumn {
   flex-grow: 1;
-  /* ADDED: This makes it a positioning context for its children */
-  position: relative;
+  position: relative; /* This is the key for the child's absolute positioning */
 }
-
-/* The div that react-blockly creates - no longer needed */
-/* .blockly-editor { ... } */
 
 
 /* --- Themed Components --- */
