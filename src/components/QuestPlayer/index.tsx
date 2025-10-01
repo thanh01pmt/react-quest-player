@@ -164,8 +164,7 @@ export const QuestPlayer: React.FC = () => {
           ) : (
             <div className="emptyState">
               <h2>Load a Quest to Begin</h2>
-              <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
-              {importError && <p style={{ color: 'red' }}>Error: {importError}</p>}
+              {/* Importer is no longer here */}
             </div>
           )}
 
@@ -175,6 +174,10 @@ export const QuestPlayer: React.FC = () => {
               Task: {questData.descriptionKey}
             </div>
           )}
+          <div>
+              <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
+              {importError && <p style={{ color: 'red', fontSize: '12px' }}>{importError}</p>}
+          </div>
         </div>
         <div style={{ height: '800px', width: '800px', border: '1px solid gray' }}>
           {questData && GameEngine ? (
@@ -183,7 +186,23 @@ export const QuestPlayer: React.FC = () => {
               className="fill-container"
               toolboxConfiguration={questData.blocklyConfig.toolbox}
               initialXml={questData.blocklyConfig.startBlocks}
-              workspaceConfiguration={{}}
+              workspaceConfiguration={{
+                trashcan: true,
+                zoom: {
+                  controls: true,
+                  wheel: false,
+                  startScale: 1.0,
+                  maxScale: 3,
+                  minScale: 0.3,
+                  scaleSpeed: 1.2
+                },
+                grid: {
+                  spacing: 20,
+                  length: 3,
+                  colour: "#ccc",
+                  snap: true,
+                }
+              }}
               onWorkspaceChange={(workspace) => {
                 workspaceRef.current = workspace;
                 setBlockCount(workspace.getAllBlocks(false).length);
