@@ -2,13 +2,13 @@
 
 import React, { useRef } from 'react';
 import { BlocklyWorkspace as BlocklyComponent } from 'react-blockly';
-import Blockly from 'blockly';
-import 'blockly/javascript'; // Required for code generation
-import en from 'blockly/msg/en';
+import * as Blockly from 'blockly/core';
+import { javascriptGenerator } from 'blockly/javascript'; // IMPORT javascriptGenerator
+import 'blockly/javascript';
+import * as en from 'blockly/msg/en';
 import type { BlocklyConfig } from '../../types';
 
-// Set locale for Blockly
-Blockly.setLocale(en);
+Blockly.setLocale(en as unknown as { [key: string]: string; });
 
 interface BlocklyWorkspaceProps {
   blocklyConfig: BlocklyConfig;
@@ -20,18 +20,12 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({ blocklyConfi
 
   const handleRunClick = () => {
     if (workspaceRef.current) {
-      const code = (Blockly as any).JavaScript.workspaceToCode(workspaceRef.current);
+      // USE javascriptGenerator instead of Blockly.JavaScript
+      const code = javascriptGenerator.workspaceToCode(workspaceRef.current);
       onRun(code);
     } else {
       console.error("Workspace is not initialized yet.");
     }
-  };
-
-  // This is a workaround for react-blockly as it needs a div with explicit size.
-  // We'll use CSS later to make this more robust.
-  const blocklyComponentStyle = {
-    height: 'calc(100% - 50px)', // Subtract button area height
-    width: '100%',
   };
 
   return (
@@ -41,16 +35,18 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({ blocklyConfi
           Run Program
         </button>
       </div>
-      <div style={blocklyComponentStyle}>
-        <BlocklyComponent
-          toolboxConfiguration={blocklyConfig.toolbox}
-          initialXml={blocklyConfig.startBlocks}
-          className="fill-height"
-          workspaceConfiguration={{}} // Add required empty workspace configuration
-          onWorkspaceChange={(workspace) => {
-            workspaceRef.current = workspace;
-          }}
-        />
+      <div style={{ flexGrow: 1, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
+            <BlocklyComponent
+              toolboxConfiguration={blocklyConfig.toolbox}
+              initialXml={blocklyConfig.startBlocks}
+              className="fill-height"
+              workspaceConfiguration={{}}
+              onWorkspaceChange={(workspace) => {
+                workspaceRef.current = workspace;
+              }}
+            />
+        </div>
       </div>
     </div>
   );
