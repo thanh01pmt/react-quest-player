@@ -1,25 +1,40 @@
 // src/components/Visualization/index.tsx
 
 import React from 'react';
+import type { IGameRenderer, GameState, GameConfig } from '../../types';
 
-// At this stage, Visualization is just a placeholder.
-// It will later receive gameState and render the actual game.
-export const Visualization: React.FC = () => {
-  const style: React.CSSProperties = {
+interface VisualizationProps {
+  GameRenderer: IGameRenderer | null;
+  gameState: GameState | null;
+  gameConfig: GameConfig | null;
+}
+
+// FIXED: Changed component definition syntax for better type inference.
+export const Visualization = ({
+  GameRenderer,
+  gameState,
+  gameConfig,
+}: VisualizationProps) => {
+  const containerStyle: React.CSSProperties = {
     width: '100%',
     height: '100%',
-    backgroundColor: '#f0f0f0',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    color: '#888',
-    fontSize: '1.5em',
-    fontFamily: 'sans-serif',
+    backgroundColor: '#333', // A dark background for the viz area
   };
+  
+  if (!GameRenderer || !gameState || !gameConfig) {
+    return (
+      <div style={containerStyle}>
+        <span>Initializing Visualization...</span>
+      </div>
+    );
+  }
 
   return (
-    <div style={style}>
-      <span>Game Visualization Area</span>
+    <div style={containerStyle}>
+      <GameRenderer gameState={gameState} gameConfig={gameConfig} />
     </div>
   );
 };
