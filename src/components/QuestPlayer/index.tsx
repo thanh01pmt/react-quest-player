@@ -123,14 +123,6 @@ export const QuestPlayer: React.FC = () => {
     setQuestData(loadedQuest);
     setImportError('');
   };
-
-  const EmptyState = ({ inColumn }: { inColumn: 'viz' | 'blockly' }) => (
-    <div style={{ padding: '20px', textAlign: 'center', height: '100%', boxSizing: 'border-box' }}>
-      <h2>{inColumn === 'viz' ? 'Game Area' : 'Blockly Area'}</h2>
-      <p>Please import a Quest JSON file to begin.</p>
-      {importError && <p style={{ color: 'red' }}>Error: {importError}</p>}
-    </div>
-  );
   
   const maxBlocks = questData?.blocklyConfig.maxBlocks;
 
@@ -144,20 +136,8 @@ export const QuestPlayer: React.FC = () => {
         <p>{dialogState.message}</p>
       </Dialog>
       <div style={{ display: 'flex' }}>
-        <div style={{ width: '450px' }}>
-          {questData ? (
-            <Visualization
-              GameRenderer={GameRenderer}
-              gameState={currentGameState}
-              gameConfig={questData.gameConfig}
-              // FIXED: Pass overlay data down
-              blockCount={blockCount}
-              maxBlocks={maxBlocks}
-              descriptionKey={questData.descriptionKey}
-            />
-          ) : (
-            <EmptyState inColumn="viz" />
-          )}
+        <div style={{ width: '450px', border: '1px solid gray' }}>
+          {/* --- TOP ROW --- */}
           <div className="controlsArea">
             <div>
               {questData && (
@@ -167,13 +147,36 @@ export const QuestPlayer: React.FC = () => {
                 </>
               )}
             </div>
-            {/* REMOVED: Block count display is now an overlay */}
-            <div>
-              <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
-            </div>
+            {questData && maxBlocks && isFinite(maxBlocks) && (
+              <div style={{ fontFamily: 'monospace' }}>
+                Blocks: {blockCount} / {maxBlocks}
+              </div>
+            )}
           </div>
+
+          {/* --- MIDDLE ROW (VISUALIZATION) --- */}
+          {questData ? (
+            <Visualization
+              GameRenderer={GameRenderer}
+              gameState={currentGameState}
+              gameConfig={questData.gameConfig}
+            />
+          ) : (
+            <div className="emptyState">
+              <h2>Load a Quest to Begin</h2>
+              <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
+              {importError && <p style={{ color: 'red' }}>Error: {importError}</p>}
+            </div>
+          )}
+
+          {/* --- BOTTOM ROW (DESCRIPTION) --- */}
+          {questData && (
+            <div className="descriptionArea">
+              Task: {questData.descriptionKey}
+            </div>
+          )}
         </div>
-        <div style={{ height: '800px', width: '800px', border: '1px solid red' }}>
+        <div style={{ height: '800px', width: '800px', border: '1px solid gray' }}>
           {questData && GameEngine ? (
             <BlocklyWorkspace
               key={questData.id}
@@ -187,7 +190,10 @@ export const QuestPlayer: React.FC = () => {
               }}
             />
           ) : (
-            <EmptyState inColumn="blockly" />
+            <div className="emptyState">
+              <h2>Blockly Area</h2>
+              <p>Waiting for a quest to be loaded...</p>
+            </div>
           )}
         </div>
       </div>

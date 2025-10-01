@@ -32,16 +32,17 @@ body {
 
 .appContainer {
   display: flex;
-  height: 100vh;
-  width: 100%;
 }
 
 .visualizationColumn {
+  width: '450px';
+  /* 
   flex-basis: 450px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color); 
+  */
 }
 
 .controlsArea {
@@ -56,8 +57,17 @@ body {
 
 /* --- Blockly Column --- */
 .blocklyColumn {
+  height: 800px;
+  width: '800px';
+  /* 
   flex-grow: 1;
-  position: relative;
+  position: relative; 
+  */
+}
+
+.fill-container {
+  width: 100%;
+  height: 100%;
 }
 
 /* --- Themed Components --- */
@@ -74,4 +84,23 @@ body {
 
 .primaryButton:hover {
   background-color: var(--button-hover-bg-color);
+}
+
+.descriptionArea {
+  padding: 10px;
+  text-align: center;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--background-color);
+  font-style: italic;
+}
+
+.emptyState {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  text-align: center;
+  color: #888;
 }
