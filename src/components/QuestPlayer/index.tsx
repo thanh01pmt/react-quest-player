@@ -6,23 +6,21 @@ import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
 import type { Quest, GameEngineConstructor, IGameEngine, GameState, IGameRenderer } from '../../types';
 import { Visualization } from '../Visualization';
+import { QuestImporter } from '../QuestImporter';
 import { initializeGame } from '../../games/GameBlockManager';
 import '../../App.css';
 import './QuestPlayer.css';
 
-interface QuestPlayerProps {
-  questId: string;
-}
-
 type PlayerStatus = 'idle' | 'running' | 'finished';
 
-export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
+export const QuestPlayer: React.FC = () => {
+  // All state is now self-contained within QuestPlayer
   const [questData, setQuestData] = useState<Quest | null>(null);
+  const [importError, setImportError] = useState<string>('');
+
   const [GameEngine, setGameEngine] = useState<GameEngineConstructor | null>(null);
   const [GameRenderer, setGameRenderer] = useState<IGameRenderer | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-
+  
   const gameEngine = useRef<IGameEngine | null>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
@@ -31,24 +29,17 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
   
   const frameIndex = useRef(0);
 
+  // Load game modules when a new quest is loaded
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    setQuestData(null);
-    setGameEngine(null);
-    setGameRenderer(null);
+    if (!questData) {
+      setGameEngine(null);
+      setGameRenderer(null);
+      return;
+    };
 
-    fetch(`/quests/${questId}.json`)
-      .then(response => response.json())
-      .then(data => setQuestData(data as Quest))
-      .catch((_err) => setError(`Could not load quest: ${questId}.json`))
-      .finally(() => setLoading(false));
-  }, [questId]);
-
-  useEffect(() => {
-    if (!questData) return;
     const gameType = questData.gameType;
     let isMounted = true;
+    
     const init = async () => {
       try {
         await initializeGame(gameType);
@@ -58,13 +49,15 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
           setGameRenderer(() => gameModule.GameRenderer);
         }
       } catch (_err) {
-        if (isMounted) setError(`Could not load game module for ${gameType}.`);
+        if (isMounted) setImportError(`Could not load game module for ${gameType}.`);
       }
     };
+
     init();
     return () => { isMounted = false; };
   }, [questData]);
   
+  // Instantiate engine when the constructor is ready
   useEffect(() => {
     if (GameEngine && questData) {
       const engine = new GameEngine(questData.gameConfig);
@@ -75,6 +68,7 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
     }
   }, [GameEngine, questData]);
 
+  // Animation loop
   useEffect(() => {
     if (playerStatus !== 'running' || !executionLog) return;
     const intervalId = setInterval(() => {
@@ -89,9 +83,6 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
     }, 150);
     return () => clearInterval(intervalId);
   }, [playerStatus, executionLog]);
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
 
   const handleRun = () => {
     if (!gameEngine.current || !workspaceRef.current || playerStatus === 'running') return;
@@ -111,34 +102,57 @@ export const QuestPlayer: React.FC<QuestPlayerProps> = ({ questId }) => {
     setPlayerStatus('idle');
   }
 
-  // DEBUG: Simplified layout with fixed dimensions
+  const handleQuestLoad = (loadedQuest: Quest) => {
+    setQuestData(loadedQuest);
+    setImportError('');
+  };
+
+  const EmptyState = () => (
+    <div style={{ padding: '20px', textAlign: 'center' }}>
+      <h2>No Quest Loaded</h2>
+      <p>Please import a Quest JSON file to begin.</p>
+      {importError && <p style={{ color: 'red' }}>Error: {importError}</p>}
+    </div>
+  );
+
   return (
     <div style={{ display: 'flex' }}>
       <div style={{ width: '450px' }}>
-        <Visualization
-          GameRenderer={GameRenderer}
-          gameState={currentGameState}
-          gameConfig={questData?.gameConfig ?? null}
-        />
-        <div>
-          <button className="primaryButton" onClick={handleRun}>Run</button>
-          <button className="primaryButton" onClick={handleReset}>Reset</button>
+        {questData ? (
+          <Visualization
+            GameRenderer={GameRenderer}
+            gameState={currentGameState}
+            gameConfig={questData.gameConfig}
+          />
+        ) : (
+          <div>No Quest Loaded</div>
+        )}
+        <div className="controlsArea">
+          <div>
+            {questData && (
+              <>
+                <button className="primaryButton" onClick={handleRun}>Run</button>
+                <button className="primaryButton" onClick={handleReset}>Reset</button>
+              </>
+            )}
+          </div>
+          <div>
+            <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
+          </div>
         </div>
       </div>
       <div style={{ height: '800px', width: '800px', border: '1px solid red' }}>
         {GameEngine && questData ? (
           <BlocklyWorkspace
-            key={questId}
+            key={questData.id}
             className="fill-container"
             toolboxConfiguration={questData.blocklyConfig.toolbox}
             initialXml={questData.blocklyConfig.startBlocks}
             workspaceConfiguration={{}}
-            onWorkspaceChange={(workspace) => {
-              workspaceRef.current = workspace;
-            }}
+            onWorkspaceChange={(workspace) => { workspaceRef.current = workspace; }}
           />
         ) : (
-          <div>Initializing...</div>
+          <EmptyState />
         )}
       </div>
     </div>

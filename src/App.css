@@ -30,7 +30,6 @@ body {
   color: var(--text-color);
 }
 
-/* --- Main App Layout --- */
 .appContainer {
   display: flex;
   height: 100vh;
@@ -47,16 +46,19 @@ body {
 
 .controlsArea {
   padding: 10px;
-  text-align: center;
   border-top: 1px solid var(--border-color);
   background-color: var(--background-color);
+  /* FIXED: Use Flexbox for button alignment */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
+/* --- Blockly Column --- */
 .blocklyColumn {
   flex-grow: 1;
-  position: relative; /* This is the key for the child's absolute positioning */
+  position: relative;
 }
-
 
 /* --- Themed Components --- */
 .primaryButton {

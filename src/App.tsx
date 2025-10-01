@@ -1,17 +1,13 @@
 // src/App.tsx
 
 import { QuestPlayer } from './components/QuestPlayer';
-import './App.css'; // Optional: for global styles
+import './App.css';
 
 function App() {
-  // We'll hardcode the questId for now.
-  // In the future, this could come from URL routing.
-  const questId = "maze-1";
-
+  // App is now just a simple shell.
+  // All logic is self-contained within QuestPlayer.
   return (
-    <div className="App">
-      <QuestPlayer questId={questId} />
-    </div>
+    <QuestPlayer />
   );
 }
 
