@@ -45,20 +45,18 @@ const turtleConfigSchema = z.object({
   }),
 });
 
-// A discriminated union for all possible game configurations.
-// Zod will use the 'type' field to determine which schema to apply.
 const gameConfigSchema = z.discriminatedUnion('type', [
   mazeConfigSchema,
   turtleConfigSchema,
-  // Add schemas for new games here in the future
-  // e.g., birdConfigSchema
 ]);
 
 // Schema for the solution configuration
 const solutionConfigSchema = z.object({
   type: z.enum(['reach_target', 'match_drawing', 'match_music', 'survive_battle']),
-  // Optional fields can be added here as needed
   pixelTolerance: z.number().optional(),
+  // Add the optional solution fields
+  solutionBlocks: z.string().optional(),
+  solutionScript: z.string().optional(),
 });
 
 
@@ -74,9 +72,8 @@ export const questSchema = z.object({
   translations: z.record(z.string(), z.record(z.string(), z.string())).optional(),
 
   blocklyConfig: blocklyConfigSchema,
-  gameConfig: gameConfigSchema, // Now directly uses the clean discriminated union
+  gameConfig: gameConfigSchema,
   solution: solutionConfigSchema,
 });
 
-// We can also infer the TypeScript type from the schema if needed
 export type Quest = z.infer<typeof questSchema>;

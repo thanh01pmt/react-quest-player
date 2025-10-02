@@ -2,12 +2,12 @@
 
 import Interpreter from 'js-interpreter';
 import type { IGameEngine, GameConfig, GameState, TurtleConfig, SolutionConfig } from '../../types';
-import type { TurtleGameState } from './types';
+import type { TurtleGameState, DrawingCommand, TurtleCharacterState } from './types';
 
 type Interpreter = any;
 
-const EXECUTION_TIMEOUT_TICKS = 100000; // Increased ticks for potentially complex drawings
-const PAUSE_EVERY_N_STEPS = 1000; // To prevent tight loops from freezing the browser
+const EXECUTION_TIMEOUT_TICKS = 100000;
+const PAUSE_EVERY_N_STEPS = 1000;
 
 export class TurtleEngine implements IGameEngine {
   private readonly startState: TurtleGameState;
@@ -22,7 +22,7 @@ export class TurtleEngine implements IGameEngine {
     this.startState = {
       turtle: { ...restOfStart, heading: direction, visible: true },
       commands: [
-        { command: 'penColour', colour: '#ffffff' } // Set default color to white
+        { command: 'penColour', colour: '#ffffff' }
       ],
       highlightedBlockId: null,
       result: 'unset',
@@ -32,7 +32,6 @@ export class TurtleEngine implements IGameEngine {
   }
 
   getInitialState(): TurtleGameState {
-    // Return a deep copy to prevent mutation of the startState object
     return JSON.parse(JSON.stringify(this.startState));
   }
 
@@ -42,8 +41,7 @@ export class TurtleEngine implements IGameEngine {
     this.ticks = EXECUTION_TIMEOUT_TICKS;
     this.stepsWithoutPause = 0;
   }
-  
-  // The core of the step-based execution
+
   step(): { done: boolean, state: GameState } | null {
     if (!this.interpreter || this.currentState.isFinished) {
       return null;
@@ -68,38 +66,97 @@ export class TurtleEngine implements IGameEngine {
         return { done: true, state: this.currentState };
       }
 
-      // If a block was highlighted, pause execution and return the current state
       if (this.currentState.highlightedBlockId) {
-        this.stepsWithoutPause = 0; // Reset counter on any turtle action
+        this.stepsWithoutPause = 0;
         return { done: false, state: JSON.parse(JSON.stringify(this.currentState)) };
       }
 
-      // Prevent infinite loops without turtle commands from freezing the browser.
       if (this.stepsWithoutPause++ > PAUSE_EVERY_N_STEPS) {
         this.stepsWithoutPause = 0;
         return { done: false, state: JSON.parse(JSON.stringify(this.currentState)) };
       }
     }
 
-    // No more code to run
     this.currentState.isFinished = true;
-    this.currentState.result = 'success'; // Assume success, checkWinCondition will verify
+    // Don't assume success. The QuestPlayer will verify and set the final result.
+    this.currentState.result = 'unset'; 
     return { done: true, state: this.currentState };
   }
+  
+  /**
+   * Runs a script in a headless, synchronous mode to generate drawing commands for the solution.
+   * @param script The JavaScript solution script.
+   * @returns An array of drawing commands.
+   */
+  public runHeadless(script: string): DrawingCommand[] {
+    const localState: { turtle: TurtleCharacterState, commands: DrawingCommand[] } = {
+        turtle: JSON.parse(JSON.stringify(this.startState.turtle)),
+        commands: [{ command: 'penColour', colour: '#ffffff' }],
+    };
 
+    const initApiHeadless = (interpreter: Interpreter, globalObject: any) => {
+        const wrap = (func: Function) => interpreter.createNativeFunction(func);
+        const move = (dist: number) => {
+            const { turtle } = localState;
+            if (turtle.penDown) {
+                localState.commands.push({ command: 'moveTo', x: turtle.x, y: turtle.y });
+            }
+            const radians = (turtle.heading * Math.PI) / 180;
+            turtle.x += dist * Math.sin(radians);
+            turtle.y -= dist * Math.cos(radians);
+            if (turtle.penDown) {
+                localState.commands.push({ command: 'lineTo', x: turtle.x, y: turtle.y });
+                localState.commands.push({ command: 'stroke' });
+            }
+        };
+        const turn = (angle: number) => {
+            localState.turtle.heading = (localState.turtle.heading + angle + 360) % 360;
+        };
+        
+        interpreter.setProperty(globalObject, 'moveForward', wrap(move));
+        interpreter.setProperty(globalObject, 'moveBackward', wrap((dist: number) => move(-dist)));
+        interpreter.setProperty(globalObject, 'turnRight', wrap(turn));
+        interpreter.setProperty(globalObject, 'turnLeft', wrap((angle: number) => turn(-angle)));
+        // Other APIs can be added here if solution scripts need them.
+    };
 
-  checkWinCondition(finalState: GameState, _solutionConfig: SolutionConfig): boolean {
-    // For Turtle, win condition is determined by comparing canvases in the renderer.
-    // This method could be used for other checks if needed.
-    return (finalState as TurtleGameState).result === 'success';
+    try {
+        const interpreter = new Interpreter(script, initApiHeadless);
+        interpreter.run();
+    } catch (e) {
+        console.error("Error running solution script:", e);
+        return [];
+    }
+    return localState.commands;
   }
 
-  // --- API Initialization ---
+  /**
+   * Compares two ImageData objects to see if they match within a tolerance.
+   * @param userImageData The user's drawing.
+   * @param solutionImageData The solution's drawing.
+   * @param tolerance The number of pixels allowed to be different.
+   * @returns True if the drawings match, false otherwise.
+   */
+  public verifySolution(userImageData: ImageData, solutionImageData: ImageData, tolerance: number): boolean {
+    const len = Math.min(userImageData.data.length, solutionImageData.data.length);
+    let delta = 0;
+    // Pixels are in RGBA format. We only need to check the Alpha channel.
+    for (let i = 3; i < len; i += 4) {
+      if (Math.abs(userImageData.data[i] - solutionImageData.data[i]) > 64) {
+        delta++;
+      }
+    }
+    return delta <= tolerance;
+  }
+
+  checkWinCondition(_finalState: GameState, _solutionConfig: SolutionConfig): boolean {
+    // This method is now legacy for Turtle, as verification happens in QuestPlayer.
+    return true; 
+  }
 
   private initApi(interpreter: Interpreter, globalObject: any): void {
-    const wrap = (func: (...args: any[]) => any) => 
-      interpreter.createNativeFunction(func.bind(this));
-
+    const wrap = (func: (...args: any[]) => any) => interpreter.createNativeFunction(func.bind(this));
+    
     interpreter.setProperty(globalObject, 'moveForward', wrap(this.move));
     interpreter.setProperty(globalObject, 'moveBackward', wrap((dist: number, id: string) => this.move(-dist, id)));
     interpreter.setProperty(globalObject, 'turnRight', wrap(this.turn));
@@ -110,13 +167,9 @@ export class TurtleEngine implements IGameEngine {
     interpreter.setProperty(globalObject, 'penColour', wrap(this.penColour));
     interpreter.setProperty(globalObject, 'hideTurtle', wrap((id: string) => this.isVisible(false, id)));
     interpreter.setProperty(globalObject, 'showTurtle', wrap((id: string) => this.isVisible(true, id)));
-    
-    // Placeholder for print/font, not implemented in this pass
     interpreter.setProperty(globalObject, 'print', wrap(() => {}));
     interpreter.setProperty(globalObject, 'font', wrap(() => {}));
   }
-
-  // --- Turtle API Methods ---
 
   private highlight(id?: string): void {
     if (id) {
@@ -130,11 +183,9 @@ export class TurtleEngine implements IGameEngine {
     if (turtle.penDown) {
       this.currentState.commands.push({ command: 'moveTo', x: turtle.x, y: turtle.y });
     }
-
     const radians = (turtle.heading * Math.PI) / 180;
     turtle.x += distance * Math.sin(radians);
     turtle.y -= distance * Math.cos(radians);
-
     if (turtle.penDown) {
       this.currentState.commands.push({ command: 'lineTo', x: turtle.x, y: turtle.y });
       this.currentState.commands.push({ command: 'stroke' });
