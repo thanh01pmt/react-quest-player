@@ -1,0 +1,25 @@
+/* src/games/pond/Pond.css */
+
+.pondContainer {
+    width: 400px;
+    height: 400px;
+    position: relative;
+    border: 1px solid var(--border-color);
+  }
+  
+  .pondContainer canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  
+  #displayCanvas {
+    z-index: 1;
+  }
+  
+  #scratchCanvas {
+    z-index: 0;
+    display: none; /* Scratch canvas is for offscreen rendering */
+  }

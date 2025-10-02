@@ -51,6 +51,7 @@ const processToolbox = (toolbox: ToolboxJSON, t: (key: string) => string): Toolb
           return t(i18nKey);
         });
         let categoryTheme = '';
+        if (item.name.includes('POND')) categoryTheme = 'pond_category';
         if (item.name.includes('TURTLE')) categoryTheme = 'turtle_category';
         if (item.name.includes('LOOPS')) categoryTheme = 'loops_category';
         if (item.name.includes('COLOUR')) categoryTheme = 'colour_category';
@@ -107,6 +108,7 @@ export const QuestPlayer: React.FC = () => {
       name: 'customTheme',
       base: baseTheme,
       categoryStyles: {
+        'pond_category': { 'colour': '290' },
         'turtle_category': { 'colour': '160' },
         'loops_category': { 'colour': '%{BKY_LOOPS_HUE}' },
         'colour_category': { 'colour': '%{BKY_COLOUR_HUE}' },
@@ -176,7 +178,6 @@ export const QuestPlayer: React.FC = () => {
     if (GameEngine && questData) {
       const engine = new GameEngine(questData.gameConfig);
       gameEngine.current = engine;
-      console.log('DEBUG: questData in engine init hook:', questData); // NEW DEBUG LINE
       setCurrentGameState(engine.getInitialState());
       setPlayerStatus('idle');
       setExecutionLog(null);
@@ -184,7 +185,6 @@ export const QuestPlayer: React.FC = () => {
 
       if (questData.gameType === 'turtle' && (engine as TurtleEngine).runHeadless && (questData.solution as any).solutionScript) {
         const commands = (engine as TurtleEngine).runHeadless((questData.solution as any).solutionScript);
-        console.log('DEBUG: Generated solutionCommands:', commands);
         setSolutionCommands(commands);
       } else {
         setSolutionCommands(null);

@@ -45,16 +45,30 @@ const turtleConfigSchema = z.object({
   }),
 });
 
+const pondAvatarConfigSchema = z.object({
+    name: z.string(),
+    isPlayer: z.boolean(),
+    start: z.object({ x: z.number(), y: z.number() }),
+    damage: z.number(),
+    code: z.string().optional(),
+});
+
+const pondConfigSchema = z.object({
+    type: z.literal('pond'),
+    avatars: z.array(pondAvatarConfigSchema),
+});
+
+// A discriminated union for all possible game configurations.
 const gameConfigSchema = z.discriminatedUnion('type', [
   mazeConfigSchema,
   turtleConfigSchema,
+  pondConfigSchema,
 ]);
 
 // Schema for the solution configuration
 const solutionConfigSchema = z.object({
-  type: z.enum(['reach_target', 'match_drawing', 'match_music', 'survive_battle']),
+  type: z.enum(['reach_target', 'match_drawing', 'match_music', 'survive_battle', 'destroy_target']),
   pixelTolerance: z.number().optional(),
-  // Add the optional solution fields
   solutionBlocks: z.string().optional(),
   solutionScript: z.string().optional(),
 });
