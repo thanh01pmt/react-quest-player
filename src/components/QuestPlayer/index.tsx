@@ -1,6 +1,8 @@
 // src/components/QuestPlayer/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n'; // Import the i18next instance
 import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
@@ -8,6 +10,7 @@ import type { Quest, GameEngineConstructor, IGameEngine, GameState, IGameRendere
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
+import { LanguageSelector } from '../LanguageSelector';
 import { initializeGame } from '../../games/GameBlockManager';
 import type { MazeGameState } from '../../games/maze/types';
 import '../../App.css';
@@ -22,6 +25,7 @@ interface DialogState {
 }
 
 export const QuestPlayer: React.FC = () => {
+  const { t } = useTranslation();
   const [questData, setQuestData] = useState<Quest | null>(null);
   const [importError, setImportError] = useState<string>('');
   const [GameEngine, setGameEngine] = useState<GameEngineConstructor | null>(null);
@@ -40,6 +44,19 @@ export const QuestPlayer: React.FC = () => {
     message: '',
   });
   const [blockCount, setBlockCount] = useState(0);
+
+  // ADDED: useEffect to dynamically load translations from the quest file
+  useEffect(() => {
+    if (questData?.translations) {
+      const { translations } = questData;
+      Object.keys(translations).forEach((lang) => {
+        i18n.addResourceBundle(lang, 'translation', translations[lang], true, true);
+      });
+      // Force a re-render if the language has already been loaded
+      // to ensure the new translations are picked up immediately.
+      i18n.changeLanguage(i18n.language); 
+    }
+  }, [questData]);
 
   // Load and initialize game modules
   useEffect(() => {
@@ -88,9 +105,9 @@ export const QuestPlayer: React.FC = () => {
         setPlayerStatus('finished');
         const finalState = executionLog[executionLog.length - 1] as MazeGameState;
         if (finalState.result === 'success') {
-          setDialogState({ isOpen: true, title: 'Congratulations!', message: 'You solved the puzzle!' });
+          setDialogState({ isOpen: true, title: t('Games.dialogCongratulations'), message: t('Games.linesOfCode1') });
         } else {
-          setDialogState({ isOpen: true, title: 'Try Again', message: `You haven't reached the goal. (Reason: ${finalState.result})` });
+          setDialogState({ isOpen: true, title: t('Games.dialogTryAgain'), message: `${t('Games.dialogReason')}: ${finalState.result}` });
         }
       } else {
         frameIndex.current = nextIndex;
@@ -98,7 +115,7 @@ export const QuestPlayer: React.FC = () => {
       }
     }, 150);
     return () => clearInterval(intervalId);
-  }, [playerStatus, executionLog]);
+  }, [playerStatus, executionLog, t]);
 
   const handleRun = () => {
     if (!gameEngine.current || !workspaceRef.current || playerStatus === 'running') return;
@@ -135,28 +152,27 @@ export const QuestPlayer: React.FC = () => {
       >
         <p>{dialogState.message}</p>
       </Dialog>
-      <div style={{ display: 'flex' }}>
+      <div className="appContainer">
         <div className="visualizationColumn">
-          {/* This wrapper will contain all content except the importer */}
           <div className="main-content-wrapper">
-            {/* --- TOP ROW --- */}
             <div className="controlsArea">
               <div>
                 {questData && (
                   <>
-                    <button className="primaryButton" onClick={handleRun}>Run</button>
-                    <button className="primaryButton" onClick={handleReset}>Reset</button>
+                    <button className="primaryButton" onClick={handleRun}>{t('Games.runProgram')}</button>
+                    <button className="primaryButton" onClick={handleReset}>{t('Games.resetProgram')}</button>
                   </>
                 )}
               </div>
-              {questData && maxBlocks && isFinite(maxBlocks) && (
-                <div style={{ fontFamily: 'monospace' }}>
-                  Blocks: {blockCount} / {maxBlocks}
-                </div>
-              )}
+              <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                {questData && maxBlocks && isFinite(maxBlocks) && (
+                  <div style={{ fontFamily: 'monospace' }}>
+                    {t('Games.blocks')}: {blockCount} / {maxBlocks}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* --- MIDDLE ROW (VISUALIZATION) --- */}
             {questData ? (
               <Visualization
                 GameRenderer={GameRenderer}
@@ -165,22 +181,21 @@ export const QuestPlayer: React.FC = () => {
               />
             ) : (
               <div className="emptyState">
-                <h2>Load a Quest to Begin</h2>
+                <h2>{t('Games.loadQuest')}</h2>
               </div>
             )}
 
-            {/* --- BOTTOM ROW (DESCRIPTION) --- */}
             {questData && (
               <div className="descriptionArea">
-                Task: {questData.descriptionKey}
+                {t('Games.task')}: {t(questData.descriptionKey)}
               </div>
             )}
           </div>
 
-          {/* --- BOTTOM-ALIGNED IMPORTER --- */}
           <div className="importer-container">
             <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
             {importError && <p style={{ color: 'red', fontSize: '12px', textAlign: 'center' }}>{importError}</p>}
+            <LanguageSelector />
           </div>
         </div>
         <div className="blocklyColumn">
@@ -214,8 +229,8 @@ export const QuestPlayer: React.FC = () => {
             />
           ) : (
             <div className="emptyState">
-              <h2>Blockly Area</h2>
-              <p>Waiting for a quest to be loaded...</p>
+              <h2>{t('Games.blocklyArea')}</h2>
+              <p>{t('Games.waitingForQuest')}</p>
             </div>
           )}
         </div>

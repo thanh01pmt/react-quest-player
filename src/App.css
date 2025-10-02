@@ -55,8 +55,13 @@ body {
 .importer-container {
   padding: 10px;
   border-top: 1px solid var(--border-color);
-  text-align: center;
   margin-top: auto; /* This pushes it to the bottom */
+  
+  /* ADDED: Use Flexbox for alignment */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px; /* Add some space between items */
 }
 
 

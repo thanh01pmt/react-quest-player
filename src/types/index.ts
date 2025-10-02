@@ -56,7 +56,12 @@ export interface Quest {
   gameType: 'maze' | 'bird' | 'turtle' | 'movie' | 'music' | 'pond' | 'puzzle';
   level: number;
   titleKey: string;
-  descriptionKey: string;
+  descriptionKey: string; // The key to look up for the description
+  
+  // ADDED: Optional, in-quest translations that will be merged at runtime.
+  // Structure: { "en": { "key": "value" }, "vi": { "key": "value" } }
+  translations?: Record<string, Record<string, string>>;
+
   blocklyConfig: BlocklyConfig;
   gameConfig: GameConfig;
   solution: SolutionConfig;

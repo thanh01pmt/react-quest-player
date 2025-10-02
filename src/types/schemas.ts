@@ -52,8 +52,12 @@ export const questSchema = z.object({
   level: z.number(),
   titleKey: z.string(),
   descriptionKey: z.string(),
+  
+  // ADDED: Schema for the optional translations object
+  translations: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+
   blocklyConfig: blocklyConfigSchema,
-  gameConfig: gameConfigSchema, // Will be updated to a discriminated union later
+  gameConfig: gameConfigSchema,
   solution: solutionConfigSchema,
 });
 
