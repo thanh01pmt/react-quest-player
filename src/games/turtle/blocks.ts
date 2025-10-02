@@ -28,7 +28,6 @@ export function init() {
   });
 
   Blockly.defineBlocksWithJsonArray([
-    // ... các khối khác không đổi ...
     {
       "type": "turtle_move",
       "message0": "%1 %2",
@@ -141,7 +140,7 @@ export function init() {
     },
     {
       "type": "turtle_font",
-      "message0": `${i18n.t('Turtle.font')} %1 %2 ${i18n.t('Turtle.fontSize')} %3 %4 %5`,
+      "message0": `${i18n.t('Turtle.font')}%1%2${i18n.t('Turtle.fontSize')}%3%4%5`,
       "args0": [
         { "type": "field_dropdown", "name": "FONT", "options": [['Arial', 'Arial'], ['Courier New', 'Courier New'], ['Georgia', 'Georgia'], ['Impact', 'Impact'], ['Times New Roman', 'Times New Roman'], ['Trebuchet MS', 'Trebuchet MS'], ['Verdana', 'Verdana']]},
         { "type": "input_dummy" },
@@ -156,21 +155,19 @@ export function init() {
     },
     {
       "type": "turtle_repeat_internal",
-      "message0": `%{BKY_CONTROLS_REPEAT_TITLE} %1 %2 %{BKY_CONTROLS_REPEAT_INPUT_DO} %3`,
+      "message0": `${i18n.t('Controls.repeatTitle')} %1 ${i18n.t('Controls.repeatInputDo')} %2`,  
       "args0": [
         { "type": "field_dropdown", "name": "TIMES", "options": [["3", "3"], ["4", "4"], ["5", "5"], ["360", "360"]] },
-        { "type": "input_dummy" },
-        { "type": "input_statement", "name": "DO" },
+        { "type": "input_statement", "name": "DO" },  
       ],
       "previousStatement": null,
       "nextStatement": null,
       "colour": "%{BKY_LOOPS_HUE}",
-      "tooltip": "%{BKY_CONTROLS_REPEAT_TOOLTIP}",
-      "helpUrl": "%{BKY_CONTROLS_REPEAT_HELPURL}"
+      "tooltip": i18n.t('Controls.repeatTooltip'),  
+      "helpUrl": i18n.t('Controls.repeatHelpUrl')  
     },
   ]);
 
-  //... các hàm generator không đổi ...
   javascriptGenerator.forBlock['turtle_move'] = function(block: Blockly.Block) {
     const value = javascriptGenerator.valueToCode(block, 'VALUE', Order.NONE) || '0';
     return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
