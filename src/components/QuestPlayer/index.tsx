@@ -12,7 +12,8 @@ import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
 import { LanguageSelector } from '../LanguageSelector';
 import { initializeGame } from '../../games/GameBlockManager';
-import type { MazeGameState } from '../../games/maze/types';
+import { countLinesOfCode } from '../../games/codeUtils'; // Import the new utility
+import type { MazeGameState, ResultType } from '../../games/maze/types';
 import '../../App.css';
 import './QuestPlayer.css';
 
@@ -23,6 +24,19 @@ interface DialogState {
   title: string;
   message: string;
 }
+
+// Helper to create a more user-friendly failure message
+const getFailureMessage = (t: (key: string, options?: { defaultValue: string }) => string, result: ResultType): string => {
+  // Construct the specific key for the result type
+  const reasonKey = `Games.result${result.charAt(0).toUpperCase() + result.slice(1)}`; // e.g., "Games.resultFailure"
+  
+  // Translate the specific reason, providing the raw result as a fallback
+  const translatedReason = t(reasonKey, { defaultValue: result });
+  const reasonLocale = t('Games.dialogReason');
+  
+  // Combine with the generic "Reason:" prefix
+  return `${reasonLocale}: ${translatedReason}`;
+};
 
 export const QuestPlayer: React.FC = () => {
   const { t } = useTranslation();
@@ -45,11 +59,9 @@ export const QuestPlayer: React.FC = () => {
   });
   const [blockCount, setBlockCount] = useState(0);
   const [blocklyKey, setBlocklyKey] = useState(0);
-  
-  // ADDED: State to force re-render after translations are added
   const [translationVersion, setTranslationVersion] = useState(0);
 
-  // Effect to listen for language changes
+  // Listen for language changes
   useEffect(() => {
     const handleLanguageChange = () => {
       if (questData) {
@@ -64,19 +76,18 @@ export const QuestPlayer: React.FC = () => {
     };
   }, [questData]);
 
-  // Effect to dynamically load translations from the quest file
+  // Load translations from quest file
   useEffect(() => {
     if (questData?.translations) {
       const { translations } = questData;
       Object.keys(translations).forEach((lang) => {
         i18n.addResourceBundle(lang, 'translation', translations[lang], true, true);
       });
-      // Force a re-render to make sure components pick up the new translations
       setTranslationVersion(v => v + 1);
     }
   }, [questData]);
 
-  // Load and initialize game modules
+  // Load game modules
   useEffect(() => {
     if (!questData) {
       setGameEngine(null);
@@ -122,10 +133,21 @@ export const QuestPlayer: React.FC = () => {
         clearInterval(intervalId);
         setPlayerStatus('finished');
         const finalState = executionLog[executionLog.length - 1] as MazeGameState;
+
         if (finalState.result === 'success') {
-          setDialogState({ isOpen: true, title: t('Games.dialogCongratulations'), message: t('Games.linesOfCode1') });
+          const code = workspaceRef.current ? javascriptGenerator.workspaceToCode(workspaceRef.current) : '';
+          const lines = countLinesOfCode(code);
+          let message: string;
+          if (lines === 1) {
+            message = t('Games.linesOfCode1');
+          } else {
+            message = t('Games.linesOfCode2').replace('%1', String(lines));
+          }
+          // Use the correct key for the title
+          setDialogState({ isOpen: true, title: t('Games.dialogCongratulations'), message });
         } else {
-          setDialogState({ isOpen: true, title: t('Games.dialogTryAgain'), message: `${t('Games.dialogReason')}: ${finalState.result}` });
+          // Use the updated getFailureMessage function
+          setDialogState({ isOpen: true, title: t('Games.dialogTryAgain'), message: getFailureMessage(t, finalState.result) });
         }
       } else {
         frameIndex.current = nextIndex;
@@ -158,7 +180,7 @@ export const QuestPlayer: React.FC = () => {
     setQuestData(loadedQuest);
     setImportError('');
   };
-
+  
   const maxBlocks = questData?.blocklyConfig.maxBlocks;
 
   return (
@@ -190,7 +212,6 @@ export const QuestPlayer: React.FC = () => {
                 )}
               </div>
             </div>
-
             {questData ? (
               <Visualization
                 GameRenderer={GameRenderer}
@@ -202,7 +223,6 @@ export const QuestPlayer: React.FC = () => {
                 <h2>{t('Games.loadQuest')}</h2>
               </div>
             )}
-
             {questData && (
               <div className="descriptionArea" key={translationVersion}>
                 {t('Games.task')}: {t(questData.descriptionKey)}

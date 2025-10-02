@@ -12,6 +12,12 @@
 			"Withoutaname"
 		]
 	},
+	"Games.resultFailure": "Chương trình chưa giải được câu đố.",
+	"Games.resultTimeout": "Chương trình chạy quá lâu.",
+	"Games.resultError": "Chương trình đã gặp lỗi và bị dừng.",
+	"Games.dialogReason": "Lý do",
+	"Games.dialogCongratulations": "Chúc mừng bạn",
+	"Games.dialogTryAgain": "Thử lại nào",
 	"Games.task": "Thử thách",
 	"Games.loadQuest": "Tải Quest để chơi",
 	"Games.blocklyArea": "Khu vực lập trình",
@@ -25,8 +31,8 @@
 	"Games.music": "Âm nhạc",
 	"Games.pondTutor": "Hướng dẫn chơi Ao hồ",
 	"Games.pond": "Ao hồ",
-	"Games.linesOfCode1": "Bạn đã xử lý level này với 1 dòng của JavaScript:",
-	"Games.linesOfCode2": "Bạn đã xử lý level này với %1 dòng của JavaScript:",
+	"Games.linesOfCode1": "Bạn đã xử lý level này với 1 dòng của JavaScript",
+	"Games.linesOfCode2": "Bạn đã xử lý level này với %1 dòng của JavaScript",
 	"Games.nextLevel": "Bạn có sẵn sàng cho level %1 chưa?",
 	"Games.finalLevel": "Bạn có sẵn sàng cho level tiếp theo chưa?",
 	"Games.submitTitle": "Tên:",
