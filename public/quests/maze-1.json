@@ -40,6 +40,7 @@
     "startBlocks": "<xml xmlns=\"https://developers.google.com/blockly/xml\"><block type=\"maze_moveForward\" x=\"70\" y=\"70\"></block></xml>"
   },
   "gameConfig": {
+    "type": "maze",
     "map": [
       [0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0],

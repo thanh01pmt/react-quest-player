@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python track files and folders
+/tracked_files
+/tracked_files/*

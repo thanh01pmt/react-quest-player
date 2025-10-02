@@ -18,13 +18,12 @@ const blocklyConfigSchema = z.object({
 // --- Game-specific Config Schemas ---
 
 const mazeConfigSchema = z.object({
-  type: z.literal('maze'),
   map: z.array(z.array(z.number())),
   player: z.object({
     start: z.object({
       x: z.number(),
       y: z.number(),
-      direction: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
+      direction: z.literal(0).or(z.literal(1)).or(z.literal(2)).or(z.literal(3)),
     }),
   }),
   finish: z.object({
@@ -34,7 +33,6 @@ const mazeConfigSchema = z.object({
 });
 
 const turtleConfigSchema = z.object({
-  type: z.literal('turtle'),
   player: z.object({
     start: z.object({
       x: z.number(),
@@ -45,14 +43,15 @@ const turtleConfigSchema = z.object({
   }),
 });
 
-// A discriminated union for all possible game configurations.
-// Zod will use the 'type' field to determine which schema to apply.
-const gameConfigSchema = z.discriminatedUnion('type', [
-  mazeConfigSchema,
-  turtleConfigSchema,
-  // Add schemas for new games here in the future
-  // e.g., birdConfigSchema
+// For now, GameConfig only validates Maze and Turtle. We will expand this later.
+// Using a discriminated union is the best practice for future expansion.
+const gameConfigSchema = z.discriminatedUnion('gameType', [
+  z.object({ gameType: z.literal('maze'), gameConfig: mazeConfigSchema }),
+  z.object({ gameType: z.literal('turtle'), gameConfig: turtleConfigSchema }),
+  // Add other game configs here in the future
+  // z.object({ gameType: z.literal('bird'), gameConfig: birdConfigSchema }),
 ]);
+
 
 // Schema for the solution configuration
 const solutionConfigSchema = z.object({
@@ -74,9 +73,22 @@ export const questSchema = z.object({
   translations: z.record(z.string(), z.record(z.string(), z.string())).optional(),
 
   blocklyConfig: blocklyConfigSchema,
-  gameConfig: gameConfigSchema, // Now directly uses the clean discriminated union
+  gameConfig: z.any(), // Keep as 'any' for the root object, validation happens in the discriminated union logic below
   solution: solutionConfigSchema,
+}).superRefine((data, ctx) => {
+  // Use superRefine to apply the discriminated union based on gameType
+  const result = gameConfigSchema.safeParse({ gameType: data.gameType, gameConfig: data.gameConfig });
+  if (!result.success) {
+    // Add the Zod issues to the context
+    result.error.issues.forEach((issue) => {
+      ctx.addIssue({
+        ...issue,
+        path: ['gameConfig', ...issue.path], // Prepend 'gameConfig' to the path
+      });
+    });
+  }
 });
+
 
 // We can also infer the TypeScript type from the schema if needed
 export type Quest = z.infer<typeof questSchema>;

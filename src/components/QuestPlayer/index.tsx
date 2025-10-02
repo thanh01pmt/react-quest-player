@@ -6,14 +6,14 @@ import i18n from '../../i18n';
 import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
-import type { Quest, GameEngineConstructor, IGameEngine, GameState, IGameRenderer } from '../../types';
+import type { Quest, GameEngineConstructor, IGameEngine, GameState, IGameRenderer, ToolboxJSON, ToolboxItem } from '../../types';
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
 import { LanguageSelector } from '../LanguageSelector';
 import { initializeGame } from '../../games/GameBlockManager';
-import { countLinesOfCode } from '../../games/codeUtils'; // Import the new utility
-import type { MazeGameState, ResultType } from '../../games/maze/types';
+import { countLinesOfCode } from '../../games/codeUtils';
+import type { ResultType } from '../../games/maze/types';
 import '../../App.css';
 import './QuestPlayer.css';
 
@@ -25,18 +25,66 @@ interface DialogState {
   message: string;
 }
 
-// Helper to create a more user-friendly failure message
 const getFailureMessage = (t: (key: string, options?: { defaultValue: string }) => string, result: ResultType): string => {
-  // Construct the specific key for the result type
-  const reasonKey = `Games.result${result.charAt(0).toUpperCase() + result.slice(1)}`; // e.g., "Games.resultFailure"
-  
-  // Translate the specific reason, providing the raw result as a fallback
+  const reasonKey = `Games.result${result.charAt(0).toUpperCase() + result.slice(1)}`;
   const translatedReason = t(reasonKey, { defaultValue: result });
   const reasonLocale = t('Games.dialogReason');
-  
-  // Combine with the generic "Reason:" prefix
   return `${reasonLocale}: ${translatedReason}`;
 };
+
+const turtleTheme = Blockly.Theme.defineTheme('turtle', {
+  name: 'turtle', // Required property
+  'base': Blockly.Themes.Zelos,
+  'categoryStyles': {
+    'turtle_category': { 'colour': '160' },
+    'loops_category': { 'colour': '%{BKY_LOOPS_HUE}' },
+    'colour_category': { 'colour': '%{BKY_COLOUR_HUE}' },
+    'logic_category': { 'colour': '%{BKY_LOGIC_HUE}' },
+    'math_category': { 'colour': '%{BKY_MATH_HUE}' },
+    'text_category': { 'colour': '%{BKY_TEXTS_HUE}' },
+    'list_category': { 'colour': '%{BKY_LISTS_HUE}' },
+    'variable_category': { 'colour': '%{BKY_VARIABLES_HUE}' },
+    'procedure_category': { 'colour': '%{BKY_PROCEDURES_HUE}' },
+  },
+  'startHats': true,
+});
+
+const processToolbox = (toolbox: ToolboxJSON, t: (key: string) => string): ToolboxJSON => {
+  const processedContents = toolbox.contents.map((item: ToolboxItem) => {
+    if (item.kind === 'category') {
+      const newContents = processToolbox({ ...toolbox, contents: item.contents }, t);
+      
+      const newName = item.name.replace(/%{BKY_([^}]+)}/g, (_match: string, key: string) => {
+        let i18nKey: string;
+        if (key.startsWith('GAMES_CAT')) {
+          // Handles BKY_GAMES_CATLOOPS -> Games.catLoops
+          const catName = key.substring('GAMES_CAT'.length);
+          i18nKey = 'Games.cat' + catName.charAt(0).toUpperCase() + catName.slice(1).toLowerCase();
+        } else {
+          // Handles BKY_GAMES_TURTLE -> Games.turtle
+          i18nKey = 'Games.' + key.substring('GAMES_'.length).toLowerCase();
+        }
+        return t(i18nKey);
+      });
+      
+      let categoryTheme = '';
+      if (item.name.includes('TURTLE')) categoryTheme = 'turtle_category';
+      if (item.name.includes('LOOPS')) categoryTheme = 'loops_category';
+      if (item.name.includes('COLOUR')) categoryTheme = 'colour_category';
+      if (item.name.includes('LOGIC')) categoryTheme = 'logic_category';
+      if (item.name.includes('MATH')) categoryTheme = 'math_category';
+      if (item.name.includes('TEXT')) categoryTheme = 'text_category';
+      if (item.name.includes('LISTS')) categoryTheme = 'list_category';
+      if (item.name.includes('VARIABLES')) categoryTheme = 'variable_category';
+      if (item.name.includes('PROCEDURES')) categoryTheme = 'procedure_category';
+
+      return { ...item, name: newName, contents: newContents.contents, categorystyle: categoryTheme };
+    }
+    return item;
+  });
+  return { ...toolbox, contents: processedContents };
+};
+
 
 export const QuestPlayer: React.FC = () => {
   const { t } = useTranslation();
@@ -52,6 +100,9 @@ export const QuestPlayer: React.FC = () => {
   const [currentGameState, setCurrentGameState] = useState<GameState | null>(null);
 
   const frameIndex = useRef(0);
+  const animationFrameId = useRef<number | null>(null);
+  const lastStepTime = useRef(0);
+
   const [dialogState, setDialogState] = useState<DialogState>({
     isOpen: false,
     title: '',
@@ -61,7 +112,6 @@ export const QuestPlayer: React.FC = () => {
   const [blocklyKey, setBlocklyKey] = useState(0);
   const [translationVersion, setTranslationVersion] = useState(0);
 
-  // Listen for language changes
   useEffect(() => {
     const handleLanguageChange = () => {
       if (questData) {
@@ -76,7 +126,6 @@ export const QuestPlayer: React.FC = () => {
     };
   }, [questData]);
 
-  // Load translations from quest file
   useEffect(() => {
     if (questData?.translations) {
       const { translations } = questData;
@@ -87,7 +136,6 @@ export const QuestPlayer: React.FC = () => {
     }
   }, [questData]);
 
-  // Load game modules
   useEffect(() => {
     if (!questData) {
       setGameEngine(null);
@@ -112,7 +160,6 @@ export const QuestPlayer: React.FC = () => {
     return () => { isMounted = false; };
   }, [questData]);
 
-  // Instantiate engine
   useEffect(() => {
     if (GameEngine && questData) {
       const engine = new GameEngine(questData.gameConfig);
@@ -123,51 +170,98 @@ export const QuestPlayer: React.FC = () => {
       setBlockCount(0);
     }
   }, [GameEngine, questData]);
-
-  // Animation loop
-  useEffect(() => {
-    if (playerStatus !== 'running' || !executionLog) return;
-    const intervalId = setInterval(() => {
-      const nextIndex = frameIndex.current + 1;
-      if (nextIndex >= executionLog.length) {
-        clearInterval(intervalId);
-        setPlayerStatus('finished');
-        const finalState = executionLog[executionLog.length - 1] as MazeGameState;
-
-        if (finalState.result === 'success') {
-          const code = workspaceRef.current ? javascriptGenerator.workspaceToCode(workspaceRef.current) : '';
-          const lines = countLinesOfCode(code);
-          let message: string;
-          if (lines === 1) {
-            message = t('Games.linesOfCode1');
-          } else {
-            message = t('Games.linesOfCode2').replace('%1', String(lines));
-          }
-          // Use the correct key for the title
-          setDialogState({ isOpen: true, title: t('Games.dialogCongratulations'), message });
-        } else {
-          // Use the updated getFailureMessage function
-          setDialogState({ isOpen: true, title: t('Games.dialogTryAgain'), message: getFailureMessage(t, finalState.result) });
-        }
+  
+  const showResultDialog = (finalState: any) => {
+    const result = finalState.result as ResultType;
+    if (result === 'success') {
+      const code = workspaceRef.current ? javascriptGenerator.workspaceToCode(workspaceRef.current) : '';
+      const lines = countLinesOfCode(code);
+      let message: string;
+      if (lines === 1) {
+        message = t('Games.linesOfCode1');
       } else {
-        frameIndex.current = nextIndex;
-        setCurrentGameState(executionLog[nextIndex]);
+        message = t('Games.linesOfCode2').replace('%1', String(lines));
       }
-    }, 150);
-    return () => clearInterval(intervalId);
-  }, [playerStatus, executionLog, t]);
+      setDialogState({ isOpen: true, title: t('Games.dialogCongratulations'), message });
+    } else {
+      setDialogState({ isOpen: true, title: t('Games.dialogTryAgain'), message: getFailureMessage(t, result) });
+    }
+  };
 
+  useEffect(() => {
+    const animate = (timestamp: number) => {
+      if (playerStatus !== 'running') return;
+  
+      const engine = gameEngine.current;
+      if (!engine) return;
+  
+      // --- Step-based Engine (e.g., Turtle) ---
+      if (engine.step) {
+        if (timestamp - lastStepTime.current < 50) { // ~20 FPS
+          animationFrameId.current = requestAnimationFrame(animate);
+          return;
+        }
+        lastStepTime.current = timestamp;
+  
+        const result = engine.step();
+        if (result) {
+          setCurrentGameState(result.state);
+          if (result.done) {
+            setPlayerStatus('finished');
+            showResultDialog(result.state);
+          } else {
+            animationFrameId.current = requestAnimationFrame(animate);
+          }
+        }
+      }
+      // --- Batch Engine (e.g., Maze) ---
+      else if (executionLog) {
+        const nextIndex = frameIndex.current + 1;
+        if (nextIndex >= executionLog.length) {
+          setPlayerStatus('finished');
+          const finalState = executionLog[executionLog.length - 1];
+          showResultDialog(finalState);
+        } else {
+          frameIndex.current = nextIndex;
+          setCurrentGameState(executionLog[nextIndex]);
+          animationFrameId.current = requestAnimationFrame(animate);
+        }
+      }
+    };
+  
+    if (playerStatus === 'running') {
+      animationFrameId.current = requestAnimationFrame(animate);
+    }
+  
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+    };
+  }, [playerStatus, executionLog, t]);
+  
   const handleRun = () => {
     if (!gameEngine.current || !workspaceRef.current || playerStatus === 'running') return;
     const userCode = javascriptGenerator.workspaceToCode(workspaceRef.current);
     frameIndex.current = 0;
+    lastStepTime.current = 0;
+    
     const log = gameEngine.current.execute(userCode);
-    setExecutionLog(log);
-    setCurrentGameState(log[0]);
+    
+    if (Array.isArray(log)) {
+      setExecutionLog(log);
+      setCurrentGameState(log[0]);
+    } else {
+      setExecutionLog(null);
+      setCurrentGameState(gameEngine.current.getInitialState());
+    }
     setPlayerStatus('running');
   };
 
   const handleReset = () => {
+    if (animationFrameId.current) {
+      cancelAnimationFrame(animationFrameId.current);
+    }
     if (!gameEngine.current) return;
     frameIndex.current = 0;
     setCurrentGameState(gameEngine.current.getInitialState());
@@ -182,6 +276,7 @@ export const QuestPlayer: React.FC = () => {
   };
   
   const maxBlocks = questData?.blocklyConfig.maxBlocks;
+  const processedToolbox = questData ? processToolbox(questData.blocklyConfig.toolbox, t) : undefined;
 
   return (
     <>
@@ -237,13 +332,14 @@ export const QuestPlayer: React.FC = () => {
           </div>
         </div>
         <div className="blocklyColumn">
-          {questData && GameEngine ? (
+          {questData && GameEngine && processedToolbox ? (
             <BlocklyWorkspace
               key={`${questData.id}-${blocklyKey}`}
               className="fill-container"
-              toolboxConfiguration={questData.blocklyConfig.toolbox}
+              toolboxConfiguration={processedToolbox}
               initialXml={questData.blocklyConfig.startBlocks}
               workspaceConfiguration={{
+                theme: turtleTheme,
                 trashcan: true,
                 zoom: {
                   controls: true,

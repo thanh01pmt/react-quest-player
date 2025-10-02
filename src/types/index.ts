@@ -23,7 +23,7 @@ interface ToolboxSeparator {
   kind: 'sep';
 }
 
-type ToolboxItem = ToolboxBlock | ToolboxCategory | ToolboxSeparator;
+export type ToolboxItem = ToolboxBlock | ToolboxCategory | ToolboxSeparator;
 
 export interface ToolboxJSON {
   kind: 'flyoutToolbox' | 'categoryToolbox';
@@ -78,6 +78,7 @@ interface PlayerStart {
 }
 
 export interface MazeConfig {
+  type: 'maze';
   map: number[][];
   player: {
     start: PlayerStart & { direction: 0 | 1 | 2 | 3 }; // 0:N, 1:E, 2:S, 3:W
@@ -86,12 +87,14 @@ export interface MazeConfig {
 }
 
 export interface TurtleConfig {
+  type: 'turtle';
   player: {
     start: PlayerStart & { direction: number; penDown: boolean };
   };
 }
 
 export interface BirdConfig {
+  // type: 'bird'; // Example for future
   player: {
     start: PlayerStart & { angle: number };
   };
@@ -101,6 +104,7 @@ export interface BirdConfig {
 }
 
 export interface MusicConfig {
+  // type: 'music'; // Example for future
   expectedMelody: (number | string)[][];
 }
 
@@ -139,7 +143,14 @@ export interface GameState {
  */
 export interface IGameEngine {
   getInitialState(): GameState;
-  execute(userCode: string): GameState[];
+  
+  // For batch engines (like Maze), runs all code and returns a full log.
+  // For step-based engines (like Turtle), initializes the interpreter.
+  execute(userCode: string): GameState[] | void;
+
+  // For step-based engines, executes one chunk of code.
+  step?(): { done: boolean, state: GameState } | null;
+
   checkWinCondition(finalState: GameState, solutionConfig: SolutionConfig): boolean;
 }
 
@@ -147,7 +158,6 @@ export interface IGameEngine {
  * Defines the contract for the CONSTRUCTOR of a GameEngine class.
  */
 export type GameEngineConstructor = new (gameConfig: GameConfig) => IGameEngine;
-
 
 /**
  * Defines the contract that every GameRenderer component must follow.
