@@ -1,6 +1,6 @@
 // src/components/QuestPlayer/index.tsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import * as Blockly from 'blockly/core';
@@ -14,6 +14,7 @@ import { LanguageSelector } from '../LanguageSelector';
 import { initializeGame } from '../../games/GameBlockManager';
 import { countLinesOfCode } from '../../games/codeUtils';
 import type { ResultType } from '../../games/maze/types';
+import { usePrefersColorScheme } from '../../hooks/usePrefersColorScheme';
 import '../../App.css';
 import './QuestPlayer.css';
 
@@ -32,62 +33,47 @@ const getFailureMessage = (t: (key: string, options?: { defaultValue: string }) 
   return `${reasonLocale}: ${translatedReason}`;
 };
 
-const turtleTheme = Blockly.Theme.defineTheme('turtle', {
-  name: 'turtle', // Required property
-  'base': Blockly.Themes.Zelos,
-  'categoryStyles': {
-    'turtle_category': { 'colour': '160' },
-    'loops_category': { 'colour': '%{BKY_LOOPS_HUE}' },
-    'colour_category': { 'colour': '%{BKY_COLOUR_HUE}' },
-    'logic_category': { 'colour': '%{BKY_LOGIC_HUE}' },
-    'math_category': { 'colour': '%{BKY_MATH_HUE}' },
-    'text_category': { 'colour': '%{BKY_TEXTS_HUE}' },
-    'list_category': { 'colour': '%{BKY_LISTS_HUE}' },
-    'variable_category': { 'colour': '%{BKY_VARIABLES_HUE}' },
-    'procedure_category': { 'colour': '%{BKY_PROCEDURES_HUE}' },
-  },
-  'startHats': true,
-});
-
 const processToolbox = (toolbox: ToolboxJSON, t: (key: string) => string): ToolboxJSON => {
-  const processedContents = toolbox.contents.map((item: ToolboxItem) => {
-    if (item.kind === 'category') {
-      const newContents = processToolbox({ ...toolbox, contents: item.contents }, t);
-      
-      const newName = item.name.replace(/%{BKY_([^}]+)}/g, (_match: string, key: string) => {
-        let i18nKey: string;
-        if (key.startsWith('GAMES_CAT')) {
-          // Handles BKY_GAMES_CATLOOPS -> Games.catLoops
-          const catName = key.substring('GAMES_CAT'.length);
-          i18nKey = 'Games.cat' + catName.charAt(0).toUpperCase() + catName.slice(1).toLowerCase();
-        } else {
-          // Handles BKY_GAMES_TURTLE -> Games.turtle
-          i18nKey = 'Games.' + key.substring('GAMES_'.length).toLowerCase();
-        }
-        return t(i18nKey);
-      });
-      
-      let categoryTheme = '';
-      if (item.name.includes('TURTLE')) categoryTheme = 'turtle_category';
-      if (item.name.includes('LOOPS')) categoryTheme = 'loops_category';
-      if (item.name.includes('COLOUR')) categoryTheme = 'colour_category';
-      if (item.name.includes('LOGIC')) categoryTheme = 'logic_category';
-      if (item.name.includes('MATH')) categoryTheme = 'math_category';
-      if (item.name.includes('TEXT')) categoryTheme = 'text_category';
-      if (item.name.includes('LISTS')) categoryTheme = 'list_category';
-      if (item.name.includes('VARIABLES')) categoryTheme = 'variable_category';
-      if (item.name.includes('PROCEDURES')) categoryTheme = 'procedure_category';
-
-      return { ...item, name: newName, contents: newContents.contents, categorystyle: categoryTheme };
-    }
-    return item;
-  });
-  return { ...toolbox, contents: processedContents };
+    const processedContents = toolbox.contents.map((item: ToolboxItem) => {
+      if (item.kind === 'category') {
+        const newContents = processToolbox({ ...toolbox, contents: item.contents }, t);
+        
+        const newName = item.name.replace(/%{BKY_([^}]+)}/g, (_match: string, key: string) => {
+          let i18nKey: string;
+          if (key.startsWith('GAMES_CAT')) {
+            const catName = key.substring('GAMES_CAT'.length);
+            i18nKey = 'Games.cat' + catName.charAt(0).toUpperCase() + catName.slice(1).toLowerCase();
+          } else {
+            i18nKey = 'Games.' + key.substring('GAMES_'.length).toLowerCase();
+          }
+          return t(i18nKey);
+        });
+        
+        let categoryTheme = '';
+        if (item.name.includes('TURTLE')) categoryTheme = 'turtle_category';
+        if (item.name.includes('LOOPS')) categoryTheme = 'loops_category';
+        if (item.name.includes('COLOUR')) categoryTheme = 'colour_category';
+        if (item.name.includes('LOGIC')) categoryTheme = 'logic_category';
+        if (item.name.includes('MATH')) categoryTheme = 'math_category';
+        if (item.name.includes('TEXT')) categoryTheme = 'text_category';
+        if (item.name.includes('LISTS')) categoryTheme = 'list_category';
+        if (item.name.includes('VARIABLES')) categoryTheme = 'variable_category';
+        if (item.name.includes('PROCEDURES')) categoryTheme = 'procedure_category';
+  
+        return { ...item, name: newName, contents: newContents.contents, categorystyle: categoryTheme };
+      }
+      return item;
+    });
+    return { ...toolbox, contents: processedContents };
 };
 
+const BATCH_FRAME_DELAY = 150;
+const STEP_FRAME_DELAY = 50;
 
 export const QuestPlayer: React.FC = () => {
   const { t } = useTranslation();
+  const colorScheme = usePrefersColorScheme();
+
   const [questData, setQuestData] = useState<Quest | null>(null);
   const [importError, setImportError] = useState<string>('');
   const [GameEngine, setGameEngine] = useState<GameEngineConstructor | null>(null);
@@ -111,6 +97,36 @@ export const QuestPlayer: React.FC = () => {
   const [blockCount, setBlockCount] = useState(0);
   const [blocklyKey, setBlocklyKey] = useState(0);
   const [translationVersion, setTranslationVersion] = useState(0);
+
+  const blocklyTheme = useMemo(() => {
+    const isDark = colorScheme === 'dark';
+    const baseTheme = isDark ? Blockly.Themes.Classic : Blockly.Themes.Zelos;
+
+    return Blockly.Theme.defineTheme('customTheme', {
+      name: 'customTheme', // This name must be provided
+      base: baseTheme,
+      categoryStyles: {
+        'turtle_category': { 'colour': '160' },
+        'loops_category': { 'colour': '%{BKY_LOOPS_HUE}' },
+        'colour_category': { 'colour': '%{BKY_COLOUR_HUE}' },
+        'logic_category': { 'colour': '%{BKY_LOGIC_HUE}' },
+        'math_category': { 'colour': '%{BKY_MATH_HUE}' },
+        'text_category': { 'colour': '%{BKY_TEXTS_HUE}' },
+        'list_category': { 'colour': '%{BKY_LISTS_HUE}' },
+        'variable_category': { 'colour': '%{BKY_VARIABLES_HUE}' },
+        'procedure_category': { 'colour': '%{BKY_PROCEDURES_HUE}' },
+      },
+      componentStyles: isDark ? {
+        'workspaceBackgroundColour': '#1e1e1e',
+        'toolboxBackgroundColour': '#252526',
+        'toolboxForegroundColour': '#fff',
+        'flyoutBackgroundColour': '#252526',
+        'flyoutForegroundColour': '#ccc',
+        'scrollbarColour': '#797979',
+      } : {},
+      'startHats': true,
+    });
+  }, [colorScheme]);
 
   useEffect(() => {
     const handleLanguageChange = () => {
@@ -195,9 +211,8 @@ export const QuestPlayer: React.FC = () => {
       const engine = gameEngine.current;
       if (!engine) return;
   
-      // --- Step-based Engine (e.g., Turtle) ---
       if (engine.step) {
-        if (timestamp - lastStepTime.current < 50) { // ~20 FPS
+        if (timestamp - lastStepTime.current < STEP_FRAME_DELAY) {
           animationFrameId.current = requestAnimationFrame(animate);
           return;
         }
@@ -214,8 +229,13 @@ export const QuestPlayer: React.FC = () => {
           }
         }
       }
-      // --- Batch Engine (e.g., Maze) ---
       else if (executionLog) {
+        if (timestamp - lastStepTime.current < BATCH_FRAME_DELAY) {
+            animationFrameId.current = requestAnimationFrame(animate);
+            return;
+        }
+        lastStepTime.current = timestamp;
+
         const nextIndex = frameIndex.current + 1;
         if (nextIndex >= executionLog.length) {
           setPlayerStatus('finished');
@@ -339,7 +359,7 @@ export const QuestPlayer: React.FC = () => {
               toolboxConfiguration={processedToolbox}
               initialXml={questData.blocklyConfig.startBlocks}
               workspaceConfiguration={{
-                theme: turtleTheme,
+                theme: blocklyTheme,
                 trashcan: true,
                 zoom: {
                   controls: true,

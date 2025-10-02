@@ -273,5 +273,7 @@
 	"Pond.helpText4": "This opponent is too far away to use the cannon (which has a limit of 70 meters). Instead, use the 'swim' command to start swimming towards the opponent and crash into it.",
 	"Pond.helpText5": "This opponent is also too far away to use the cannon. But you are too weak to survive a collision. Swim towards the opponent while your horizontal location is less than than 50. Then 'stop' and use the cannon.",
 	"Pond.helpText6": "This opponent will move away when it is hit. Swim towards it if it is out of range (70 meters).",
-	"Gallery": "Gallery"
+	"Gallery": "Gallery",
+	"Controls.repeatTitle": "repeat",
+	"Controls.repeatInputDo": "times do"
 }
