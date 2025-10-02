@@ -4,6 +4,10 @@
 		"locale": "en",
 		"messagedocumentation": "qqq"
 	},
+	"Games.task": "Task",
+	"Games.loadQuest": "Load quest to play",
+	"Games.blocklyArea": "Coding area",
+	"Games.waitingForQuest": "Waiting for a Quest",
 	"Games.name": "Blockly Games",
 	"Games.puzzle": "Puzzle",
 	"Games.maze": "Maze",
