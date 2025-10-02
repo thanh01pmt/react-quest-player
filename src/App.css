@@ -35,15 +35,31 @@ body {
 }
 
 .visualizationColumn {
-  width: '450px';
-  /* 
   flex-basis: 450px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-color); 
-  */
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
 }
+
+/* New wrapper to group content */
+.main-content-wrapper {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* New container for the importer */
+.importer-container {
+  padding: 10px;
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+  margin-top: auto; /* This pushes it to the bottom */
+}
+
+
 
 .controlsArea {
   padding: 10px;
@@ -57,12 +73,10 @@ body {
 
 /* --- Blockly Column --- */
 .blocklyColumn {
-  height: 800px;
-  width: '800px';
-  /* 
-  flex-grow: 1;
   position: relative; 
-  */
+  height: 100vh;
+  width: calc(100vw - 450px);
+  /* flex-grow: 1; */
 }
 
 .fill-container {

@@ -26,13 +26,13 @@ export const QuestPlayer: React.FC = () => {
   const [importError, setImportError] = useState<string>('');
   const [GameEngine, setGameEngine] = useState<GameEngineConstructor | null>(null);
   const [GameRenderer, setGameRenderer] = useState<IGameRenderer | null>(null);
-  
+
   const gameEngine = useRef<IGameEngine | null>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
   const [executionLog, setExecutionLog] = useState<GameState[] | null>(null);
   const [currentGameState, setCurrentGameState] = useState<GameState | null>(null);
-  
+
   const frameIndex = useRef(0);
   const [dialogState, setDialogState] = useState<DialogState>({
     isOpen: false,
@@ -65,7 +65,7 @@ export const QuestPlayer: React.FC = () => {
     init();
     return () => { isMounted = false; };
   }, [questData]);
-  
+
   // Instantiate engine
   useEffect(() => {
     if (GameEngine && questData) {
@@ -109,7 +109,7 @@ export const QuestPlayer: React.FC = () => {
     setCurrentGameState(log[0]);
     setPlayerStatus('running');
   };
-  
+
   const handleReset = () => {
     if (!gameEngine.current) return;
     frameIndex.current = 0;
@@ -123,7 +123,7 @@ export const QuestPlayer: React.FC = () => {
     setQuestData(loadedQuest);
     setImportError('');
   };
-  
+
   const maxBlocks = questData?.blocklyConfig.maxBlocks;
 
   return (
@@ -136,50 +136,54 @@ export const QuestPlayer: React.FC = () => {
         <p>{dialogState.message}</p>
       </Dialog>
       <div style={{ display: 'flex' }}>
-        <div style={{ width: '450px', border: '1px solid gray' }}>
-          {/* --- TOP ROW --- */}
-          <div className="controlsArea">
-            <div>
-              {questData && (
-                <>
-                  <button className="primaryButton" onClick={handleRun}>Run</button>
-                  <button className="primaryButton" onClick={handleReset}>Reset</button>
-                </>
+        <div className="visualizationColumn">
+          {/* This wrapper will contain all content except the importer */}
+          <div className="main-content-wrapper">
+            {/* --- TOP ROW --- */}
+            <div className="controlsArea">
+              <div>
+                {questData && (
+                  <>
+                    <button className="primaryButton" onClick={handleRun}>Run</button>
+                    <button className="primaryButton" onClick={handleReset}>Reset</button>
+                  </>
+                )}
+              </div>
+              {questData && maxBlocks && isFinite(maxBlocks) && (
+                <div style={{ fontFamily: 'monospace' }}>
+                  Blocks: {blockCount} / {maxBlocks}
+                </div>
               )}
             </div>
-            {questData && maxBlocks && isFinite(maxBlocks) && (
-              <div style={{ fontFamily: 'monospace' }}>
-                Blocks: {blockCount} / {maxBlocks}
+
+            {/* --- MIDDLE ROW (VISUALIZATION) --- */}
+            {questData ? (
+              <Visualization
+                GameRenderer={GameRenderer}
+                gameState={currentGameState}
+                gameConfig={questData.gameConfig}
+              />
+            ) : (
+              <div className="emptyState">
+                <h2>Load a Quest to Begin</h2>
+              </div>
+            )}
+
+            {/* --- BOTTOM ROW (DESCRIPTION) --- */}
+            {questData && (
+              <div className="descriptionArea">
+                Task: {questData.descriptionKey}
               </div>
             )}
           </div>
 
-          {/* --- MIDDLE ROW (VISUALIZATION) --- */}
-          {questData ? (
-            <Visualization
-              GameRenderer={GameRenderer}
-              gameState={currentGameState}
-              gameConfig={questData.gameConfig}
-            />
-          ) : (
-            <div className="emptyState">
-              <h2>Load a Quest to Begin</h2>
-              {/* Importer is no longer here */}
-            </div>
-          )}
-
-          {/* --- BOTTOM ROW (DESCRIPTION) --- */}
-          {questData && (
-            <div className="descriptionArea">
-              Task: {questData.descriptionKey}
-            </div>
-          )}
-          <div>
-              <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
-              {importError && <p style={{ color: 'red', fontSize: '12px' }}>{importError}</p>}
+          {/* --- BOTTOM-ALIGNED IMPORTER --- */}
+          <div className="importer-container">
+            <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
+            {importError && <p style={{ color: 'red', fontSize: '12px', textAlign: 'center' }}>{importError}</p>}
           </div>
         </div>
-        <div style={{ height: '800px', width: '800px', border: '1px solid gray' }}>
+        <div className="blocklyColumn">
           {questData && GameEngine ? (
             <BlocklyWorkspace
               key={questData.id}
