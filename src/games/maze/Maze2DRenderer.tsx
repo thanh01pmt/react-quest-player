@@ -89,12 +89,12 @@ export const Maze2DRenderer: IGameRenderer = ({ gameState, gameConfig }) => {
 
   const pegmanStyle: React.CSSProperties = {
     left: `${state.player.x * SQUARE_SIZE + (SQUARE_SIZE - PEGMAN_WIDTH) / 2}px`,
-    top: `${state.player.y * SQUARE_SIZE + (SQUARE_SIZE - PEGMAN_HEIGHT) / 2}px`,
+    top: `${state.player.y * SQUARE_SIZE + (SQUARE_SIZE - PEGMAN_HEIGHT) / 2 - 10}px`,
     backgroundPosition: `-${frame * PEGMAN_WIDTH}px 0`,
   };
   const finishStyle: React.CSSProperties = {
     left: `${config.finish.x * SQUARE_SIZE + (SQUARE_SIZE - FINISH_MARKER_WIDTH) / 2}px`,
-    top: `${config.finish.y * SQUARE_SIZE + (SQUARE_SIZE - FINISH_MARKER_HEIGHT) / 2}px`,
+    top: `${config.finish.y * SQUARE_SIZE + (SQUARE_SIZE - FINISH_MARKER_HEIGHT) / 2 - 15}px`,
   };
 
   return (
