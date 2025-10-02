@@ -3,11 +3,15 @@
 import * as Blockly from 'blockly/core';
 import { javascriptGenerator, Order } from 'blockly/javascript';
 import i18n from '../../i18n';
+import { FieldAngle } from '@blockly/field-angle';
+
+interface PondMathNumberBlock extends Blockly.Block {
+  updateField_(isAngle: boolean): void;
+}
 
 export function init() {
   const POND_HUE = 290;
 
-  // ===== POND SPECIFIC BLOCKS =====
   Blockly.defineBlocksWithJsonArray([
     {
       "type": "pond_scan",
@@ -92,90 +96,85 @@ export function init() {
       "nextStatement": null,
       "colour": POND_HUE,
       "tooltip": i18n.t('Pond.logTooltip'),
+    },
+    {
+      "type": "pond_math_single",
+      "message0": "Math.%1(%2)",
+      "args0": [
+        {
+          "type": "field_dropdown", "name": "OP",
+          "options": [
+            ["sqrt", "ROOT"], ["abs", "ABS"],
+            ["sin_deg", "SIN"], ["cos_deg", "COS"], ["tan_deg", "TAN"],
+            ["asin_deg", "ASIN"], ["acos_deg", "ACOS"], ["atan_deg", "ATAN"]
+          ]
+        },
+        { "type": "input_value", "name": "NUM", "check": "Number" }
+      ],
+      "output": "Number",
+      "colour": "%{BKY_MATH_HUE}",
+      "extensions": ["math_op_tooltip"]
     }
   ]);
 
-  // ===== JAVASCRIPT-STYLE BLOCK OVERRIDES =====
-
-  // Logic Compare
-  Blockly.Blocks['logic_compare'] = {
-    init: function() {
+  Blockly.Blocks['pond_math_number'] = {
+    init: function(this: Blockly.Block) {
       this.jsonInit({
-        "message0": "%1 %2 %3",
-        "args0": [
-          { "type": "input_value", "name": "A" },
-          {
-            "type": "field_dropdown", "name": "OP",
-            "options": [["==", "EQ"], ["!=", "NEQ"], ["<", "LT"], ["<=", "LTE"], [">", "GT"], [">=", "GTE"]]
-          },
-          { "type": "input_value", "name": "B" }
-        ],
-        "inputsInline": true,
-        "output": "Boolean",
-        "colour": "%{BKY_LOGIC_HUE}",
-        "helpUrl": "%{BKY_LOGIC_COMPARE_HELPURL}",
-        "extensions": ["logic_compare", "logic_op_tooltip"],
+        "message0": "%1",
+        "args0": [{
+          "type": "field_number",
+          "name": "NUM",
+          "value": 0,
+        }],
+        "output": "Number",
+        "helpUrl": "%{BKY_MATH_NUMBER_HELPURL}",
+        "colour": "%{BKY_MATH_HUE}",
+        "tooltip": "%{BKY_MATH_NUMBER_TOOLTIP}",
+        "extensions": ["parent_tooltip_when_inline"]
       });
+    },
+    mutationToDom: function(this: Blockly.Block) {
+      const container = document.createElement('mutation');
+      const field = this.getField('NUM');
+      const isAngle = field instanceof FieldAngle;
+      container.setAttribute('angle_field', String(isAngle));
+      return container;
+    },
+    domToMutation: function(this: PondMathNumberBlock, xmlElement: Element) {
+      const isAngle = (xmlElement.getAttribute('angle_field') === 'true');
+      this.updateField_(isAngle);
+    },
+    onchange: function(this: PondMathNumberBlock) {
+      if (!this.workspace || !this.outputConnection || !this.outputConnection.targetConnection) {
+        return;
+      }
+      const field = this.getField('NUM');
+      const wantsAngle = this.outputConnection.targetConnection.getCheck()?.includes('Angle');
+      const isAngle = field instanceof FieldAngle;
+      if (wantsAngle && !isAngle) {
+        this.updateField_(true);
+      } else if (!wantsAngle && isAngle) {
+        this.updateField_(false);
+      }
+    },
+    updateField_: function(this: Blockly.Block, isAngle: boolean) {
+      Blockly.Events.disable();
+      const input = this.inputList[0];
+      const field = this.getField('NUM');
+      const value = field!.getValue();
+      input.removeField('NUM');
+      let newField;
+      if (isAngle) {
+        newField = new FieldAngle(value);
+      } else {
+        newField = new Blockly.FieldNumber(value);
+      }
+      input.appendField(newField, 'NUM');
+      // The render call is removed as it's incorrect and likely unnecessary.
+      // Blockly's event system should handle re-rendering.
+      Blockly.Events.enable();
     }
   };
-
-  // Logic Operation
-  Blockly.Blocks['logic_operation'] = {
-      init: function() {
-        this.jsonInit({
-            "message0": "%1 %2 %3",
-            "args0": [
-                { "type": "input_value", "name": "A", "check": "Boolean" },
-                { "type": "field_dropdown", "name": "OP", "options": [["&&", "AND"], ["||", "OR"]] },
-                { "type": "input_value", "name": "B", "check": "Boolean" },
-            ],
-            "inputsInline": true,
-            "output": "Boolean",
-            "colour": "%{BKY_LOGIC_HUE}",
-            "helpUrl": "%{BKY_LOGIC_OPERATION_HELPURL}",
-            "extensions": ["logic_op_tooltip"],
-        });
-      }
-  };
-  
-  // While Loop
-  Blockly.Blocks['controls_whileUntil'] = {
-    init: function() {
-        this.jsonInit({
-            "message0": "while ( %1 ) { %2 %3 }",
-            "args0": [
-                { "type": "input_value", "name": "BOOL", "check": "Boolean" },
-                { "type": "input_dummy" },
-                { "type": "input_statement", "name": "DO" },
-            ],
-            "inputsInline": true,
-            "previousStatement": null,
-            "nextStatement": null,
-            "colour": "%{BKY_LOOPS_HUE}",
-            "tooltip": "%{BKY_CONTROLS_WHILEUNTIL_TOOLTIP_WHILE}",
-            "helpUrl": "%{BKY_CONTROLS_WHILEUNTIL_HELPURL}",
-        });
-    }
-  };
-  
-  // Variable Setter
-  Blockly.Blocks['variables_set'] = {
-      init: function(this: Blockly.Block) {
-          this.appendValueInput('VALUE')
-              .appendField('var')
-              .appendField(new Blockly.FieldVariable('item'), 'VAR')
-              .appendField('=');
-          this.appendDummyInput().appendField(';');
-          this.setInputsInline(true);
-          this.setPreviousStatement(true);
-          this.setNextStatement(true);
-          this.setColour("%{BKY_VARIABLES_HUE}");
-          this.setTooltip("%{BKY_VARIABLES_SET_TOOLTIP}");
-          this.setHelpUrl("%{BKY_VARIABLES_SET_HELPURL}");
-      }
-  };
-
-  // ===== JAVASCRIPT GENERATORS =====
 
   javascriptGenerator.forBlock['pond_scan'] = function(block: Blockly.Block) {
     const degree = javascriptGenerator.valueToCode(block, 'DEGREE', Order.NONE) || '0';
@@ -217,4 +216,21 @@ export function init() {
     const value = javascriptGenerator.valueToCode(block, 'VALUE', Order.NONE) || '\'\'';
     return `log(${value});\n`;
   };
+  
+  javascriptGenerator.forBlock['pond_math_number'] = (javascriptGenerator as any).forBlock['math_number'];
+
+  javascriptGenerator.forBlock['pond_math_single'] = function(block: Blockly.Block) {
+    const arg = javascriptGenerator.valueToCode(block, 'NUM', Order.NONE) || '0';
+    const op = block.getFieldValue('OP');
+    const func = {
+      'ROOT': 'sqrt', 'ABS': 'abs', 'SIN': 'sin_deg', 'COS': 'cos_deg',
+      'TAN': 'tan_deg', 'ASIN': 'asin_deg', 'ACOS': 'acos_deg', 'ATAN': 'atan_deg',
+    };
+    return [`Math.${func[op as keyof typeof func]}(${arg})`, Order.FUNCTION_CALL];
+  };
+  
+  (Blockly.Blocks as any)['pond_loc_x'] = Blockly.Blocks['pond_getX'];
+  (javascriptGenerator.forBlock as any)['pond_loc_x'] = javascriptGenerator.forBlock['pond_getX'];
+  (Blockly.Blocks as any)['pond_loc_y'] = Blockly.Blocks['pond_getY'];
+  (javascriptGenerator.forBlock as any)['pond_loc_y'] = javascriptGenerator.forBlock['pond_getY'];
 }

@@ -30,6 +30,10 @@ interface DialogState {
 }
 
 const getFailureMessage = (t: (key: string, options?: { defaultValue: string }) => string, result: ResultType): string => {
+  // Add a safeguard for undefined result
+  if (!result) {
+    return t('Games.dialogReason') + ': ' + t('Games.resultFailure');
+  }
   const reasonKey = `Games.result${result.charAt(0).toUpperCase() + result.slice(1)}`;
   const translatedReason = t(reasonKey, { defaultValue: result });
   const reasonLocale = t('Games.dialogReason');
@@ -39,7 +43,10 @@ const getFailureMessage = (t: (key: string, options?: { defaultValue: string }) 
 const processToolbox = (toolbox: ToolboxJSON, t: (key: string) => string): ToolboxJSON => {
     const processedContents = toolbox.contents.map((item: ToolboxItem) => {
       if (item.kind === 'category') {
-        const newContents = processToolbox({ ...toolbox, contents: item.contents }, t);
+        let processedSubContents = item.contents;
+        if (item.contents && Array.isArray(item.contents)) {
+          processedSubContents = processToolbox({ ...toolbox, contents: item.contents }, t).contents;
+        }
         const newName = item.name.replace(/%{BKY_([^}]+)}/g, (_match: string, key: string) => {
           let i18nKey: string;
           if (key.startsWith('GAMES_CAT')) {
@@ -61,7 +68,7 @@ const processToolbox = (toolbox: ToolboxJSON, t: (key: string) => string): Toolb
         if (item.name.includes('LISTS')) categoryTheme = 'list_category';
         if (item.name.includes('VARIABLES')) categoryTheme = 'variable_category';
         if (item.name.includes('PROCEDURES')) categoryTheme = 'procedure_category';
-        return { ...item, name: newName, contents: newContents.contents, categorystyle: categoryTheme };
+        return { ...item, name: newName, contents: processedSubContents, categorystyle: categoryTheme };
       }
       return item;
     });
@@ -208,10 +215,33 @@ export const QuestPlayer: React.FC = () => {
 
   useEffect(() => {
     const animate = (timestamp: number) => {
-      if (playerStatus !== 'running') return;
-      const engine = gameEngine.current as TurtleEngine;
+      if (playerStatus !== 'running' || !questData) return;
+      const engine = gameEngine.current;
       if (!engine) return;
   
+      const handleGameOver = (finalEngineState: GameState) => {
+        setPlayerStatus('finished');
+        let isSuccess = false;
+
+        // Determine success based on engine type
+        if (engine.step) { // Step-based engines
+            if (questData.gameType === 'turtle' && rendererRef.current?.getCanvasData) {
+                const { userImageData, solutionImageData } = rendererRef.current.getCanvasData();
+                if (userImageData && solutionImageData && (engine as TurtleEngine).verifySolution) {
+                    isSuccess = (engine as TurtleEngine).verifySolution(userImageData, solutionImageData, questData.solution.pixelTolerance || 0);
+                }
+            } else { // Other step-based engines like Pond
+                isSuccess = engine.checkWinCondition(finalEngineState, questData.solution);
+            }
+        } else { // Batch engines
+            isSuccess = engine.checkWinCondition(finalEngineState, questData.solution);
+        }
+        
+        const finalState = { ...finalEngineState, result: isSuccess ? 'success' : 'failure' };
+        setCurrentGameState(finalState);
+        showResultDialog(finalState);
+      };
+
       if (engine.step) {
         if (timestamp - lastStepTime.current < STEP_FRAME_DELAY) {
           animationFrameId.current = requestAnimationFrame(animate);
@@ -223,16 +253,7 @@ export const QuestPlayer: React.FC = () => {
         if (result) {
           setCurrentGameState(result.state);
           if (result.done) {
-            setPlayerStatus('finished');
-            const { userImageData, solutionImageData } = rendererRef.current?.getCanvasData() || {};
-            if (userImageData && solutionImageData && engine.verifySolution) {
-                const isSuccess = engine.verifySolution(userImageData, solutionImageData, questData!.solution.pixelTolerance || 0);
-                const finalState = { ...result.state, result: isSuccess ? 'success' : 'failure' };
-                setCurrentGameState(finalState);
-                showResultDialog(finalState);
-            } else {
-                showResultDialog(result.state); // Fallback if verification fails
-            }
+            handleGameOver(result.state);
           } else {
             animationFrameId.current = requestAnimationFrame(animate);
           }
@@ -245,9 +266,8 @@ export const QuestPlayer: React.FC = () => {
         lastStepTime.current = timestamp;
         const nextIndex = frameIndex.current + 1;
         if (nextIndex >= executionLog.length) {
-          setPlayerStatus('finished');
-          const finalState = executionLog[executionLog.length - 1];
-          showResultDialog(finalState);
+            const finalState = executionLog[executionLog.length - 1];
+            handleGameOver(finalState);
         } else {
           frameIndex.current = nextIndex;
           setCurrentGameState(executionLog[nextIndex]);

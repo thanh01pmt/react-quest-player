@@ -9,6 +9,9 @@ type Interpreter = any;
 const STATEMENTS_PER_FRAME = 100;
 const MISSILE_SPEED = 3;
 const COLLISION_RADIUS = 5;
+const AVATAR_SPEED_FACTOR = 1;
+const ACCELERATION = 5;
+const COLLISION_DAMAGE = 3;
 
 // Internal type for missile simulation
 interface Missile {
@@ -40,8 +43,8 @@ class Avatar {
       damage: damage,
       speed: 0,
       desiredSpeed: 0,
-      heading: 0,
-      facing: 0,
+      heading: this.pointsToAngle(startX, startY, 50, 50),
+      facing: this.pointsToAngle(startX, startY, 50, 50),
       dead: false,
       visualizationIndex: index,
     };
@@ -49,10 +52,16 @@ class Avatar {
   }
 
   reset() {
-    // Reset mutable state properties
     this.state.damage = 0;
     this.state.dead = false;
+    this.state.speed = 0;
+    this.state.desiredSpeed = 0;
     this.interpreter = null;
+  }
+
+  private pointsToAngle(x1: number, y1: number, x2: number, y2: number): number {
+    const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+    return (angle + 450) % 360; // Adjust for 0 degrees being East and Y-axis inverted
   }
 }
 
@@ -65,13 +74,12 @@ export class PondEngine implements IGameEngine {
   constructor(gameConfig: GameConfig) {
     const config = gameConfig as PondConfig;
     config.avatars.forEach((avatarConfig, index) => {
-      const code = avatarConfig.isPlayer ? '' : avatarConfig.code || '';
       const avatar = new Avatar(
         avatarConfig.name,
         avatarConfig.start.x,
         avatarConfig.start.y,
         avatarConfig.damage,
-        code,
+        avatarConfig.isPlayer ? '' : avatarConfig.code || '',
         index
       );
       this.avatars.push(avatar);
@@ -87,7 +95,6 @@ export class PondEngine implements IGameEngine {
       ticks: 0,
       rank: [],
     };
-    console.log("DEBUG: PondEngine.getInitialState() returned:", initialState); // DEBUG LINE ADDED
     return initialState;
   }
 
@@ -99,6 +106,7 @@ export class PondEngine implements IGameEngine {
     this.avatars.forEach(avatar => {
       avatar.reset();
       const codeToRun = avatar.state.visualizationIndex === 0 ? userCode : avatar.code;
+      if (!codeToRun) return;
       try {
         avatar.interpreter = new Interpreter(codeToRun, (interpreter: any, globalObject: any) => {
           this.initApi(interpreter, globalObject, avatar);
@@ -111,7 +119,6 @@ export class PondEngine implements IGameEngine {
   }
 
   step(): { done: boolean; state: PondGameState } | null {
-    // 1. Execute some code for each avatar
     for (let i = 0; i < STATEMENTS_PER_FRAME; i++) {
         this.ticks++;
         for (const avatar of this.avatars) {
@@ -121,31 +128,61 @@ export class PondEngine implements IGameEngine {
                 } catch (e) {
                     console.error(`${avatar.name} interpreter error:`, e);
                     avatar.state.dead = true;
+                    this.events.push({ type: 'DIE', avatarId: avatar.id });
                 }
             }
         }
     }
 
-    // 2. Update missiles
+    this.updateAvatars();
     this.updateMissiles();
 
-    // 3. Update avatars (movement, collisions, etc. - simplified for now)
-    // To be implemented in later steps
-
-    // 4. Check for game over condition
-    const survivors = this.avatars.filter(a => !a.state.dead && a.state.visualizationIndex !== 0);
-    if (survivors.length === 0) {
-      this.events.push({ type: 'DIE', avatarId: 'Target-1' }); // Mock event
+    const nonPlayerSurvivors = this.avatars.filter(a => !a.state.dead && a.state.visualizationIndex !== 0);
+    const player = this.avatars.find(a => a.state.visualizationIndex === 0);
+    if (nonPlayerSurvivors.length === 0 || (player && player.state.dead)) {
       const finalState = this.getCurrentState();
       finalState.isFinished = true;
+      finalState.rank = this.avatars
+        .sort((a,b) => (a.state.dead ? 1 : 0) - (b.state.dead ? 1 : 0) || a.state.damage - b.state.damage)
+        .map(a => a.id);
       return { done: true, state: finalState };
     }
 
     const currentState = this.getCurrentState();
-    this.events = []; // Clear events after each step
+    this.events = [];
     return { done: false, state: currentState };
   }
   
+  private updateAvatars() {
+    for(const avatar of this.avatars) {
+        if (avatar.state.dead) continue;
+
+        if (avatar.state.speed < avatar.state.desiredSpeed) {
+            avatar.state.speed = Math.min(avatar.state.speed + ACCELERATION, avatar.state.desiredSpeed);
+        } else if (avatar.state.speed > avatar.state.desiredSpeed) {
+            avatar.state.speed = Math.max(avatar.state.speed - ACCELERATION, avatar.state.desiredSpeed);
+        }
+
+        if (avatar.state.speed > 0) {
+            const speed = avatar.state.speed / 100 * AVATAR_SPEED_FACTOR;
+            const radians = ((avatar.state.heading - 90) * Math.PI) / 180; // Game angle to canvas angle
+            avatar.state.x += speed * Math.cos(radians);
+            avatar.state.y += speed * Math.sin(radians);
+
+            if (avatar.state.x < 0 || avatar.state.x > 100 || avatar.state.y < 0 || avatar.state.y > 100) {
+                avatar.state.x = Math.max(0, Math.min(avatar.state.x, 100));
+                avatar.state.y = Math.max(0, Math.min(avatar.state.y, 100));
+                const damage = avatar.state.speed / 100 * COLLISION_DAMAGE;
+                avatar.state.damage += damage;
+                avatar.state.speed = 0;
+                avatar.state.desiredSpeed = 0;
+                this.events.push({ type: 'CRASH', avatarId: avatar.id, damage });
+                if (avatar.state.damage >= 100) avatar.state.dead = true;
+            }
+        }
+    }
+  }
+
   private updateMissiles() {
     for (let i = this.missiles.length - 1; i >= 0; i--) {
         const missile = this.missiles[i];
@@ -155,7 +192,6 @@ export class PondEngine implements IGameEngine {
             this.missiles.splice(i, 1);
             this.events.push({ type: 'BOOM', x: missile.endLoc.x, y: missile.endLoc.y, damage: 10 });
             
-            // Check for damage
             for (const avatar of this.avatars) {
                 if (avatar.state.dead || avatar.id === missile.ownerId) continue;
 
@@ -163,10 +199,12 @@ export class PondEngine implements IGameEngine {
                 const dy = avatar.state.y - missile.endLoc.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                if (distance < COLLISION_RADIUS + 2) { // Allow a small blast radius
-                    avatar.state.damage += 25; // Simplified damage model
-                    if (avatar.state.damage >= 100) {
+                if (distance < COLLISION_RADIUS + 2) {
+                    const damage = 25;
+                    avatar.state.damage += damage;
+                     if (avatar.state.damage >= 100) {
                         avatar.state.dead = true;
+                        this.events.push({ type: 'DIE', avatarId: avatar.id });
                     }
                 }
             }
@@ -202,41 +240,82 @@ export class PondEngine implements IGameEngine {
 
   private initApi(interpreter: any, globalObject: any, currentAvatar: Avatar) {
     const wrap = (func: Function) => interpreter.createNativeFunction(func);
+    const toRadians = (deg: number) => deg * Math.PI / 180;
+    const toDegrees = (rad: number) => rad * 180 / Math.PI;
 
     const cannon = (degree: number, range: number) => {
         const startLoc = { x: currentAvatar.state.x, y: currentAvatar.state.y };
         degree = (degree + 360) % 360;
         currentAvatar.state.facing = degree;
         range = Math.max(0, Math.min(range, 70));
-
         const radians = ((degree - 90) * Math.PI) / 180;
         const endLoc = {
             x: startLoc.x + range * Math.cos(radians),
             y: startLoc.y + range * Math.sin(radians),
         };
-        
-        this.missiles.push({
-            avatar: currentAvatar,
-            ownerId: currentAvatar.id,
-            startLoc,
-            endLoc,
-            range,
-            progress: 0,
-        });
+        this.missiles.push({ avatar: currentAvatar, ownerId: currentAvatar.id, startLoc, endLoc, range, progress: 0 });
     };
     interpreter.setProperty(globalObject, 'cannon', wrap(cannon));
 
-    // Add stubs for other functions
-    interpreter.setProperty(globalObject, 'scan', wrap(() => Infinity));
-    interpreter.setProperty(globalObject, 'swim', wrap(() => {}));
-    interpreter.setProperty(globalObject, 'stop', wrap(() => {}));
+    const scan = (degree: number, resolution = 5): number => {
+      degree = (degree + 360) % 360;
+      resolution = Math.max(0, Math.min(resolution, 20));
+      this.events.push({ type: 'SCAN', avatarId: currentAvatar.id, degree, resolution });
+      const scan1 = (degree - resolution / 2 + 360) % 360;
+      let scan2 = (degree + resolution / 2 + 360) % 360;
+      if (scan1 > scan2) scan2 += 360;
+      let closestRange = Infinity;
+      for (const enemy of this.avatars) {
+        if (enemy === currentAvatar || enemy.state.dead) continue;
+        const dx = enemy.state.x - currentAvatar.state.x;
+        const dy = enemy.state.y - currentAvatar.state.y;
+        const range = Math.sqrt(dx*dx + dy*dy);
+        if (range >= closestRange) continue;
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        angle = (angle + 450) % 360;
+        if (angle < scan1) angle += 360;
+        if (scan1 <= angle && angle <= scan2) {
+            closestRange = range;
+        }
+      }
+      return closestRange;
+    };
+    interpreter.setProperty(globalObject, 'scan', wrap(scan));
+
+    const swim = (degree: number, speed = 50) => {
+        degree = (degree + 360) % 360;
+        if (currentAvatar.state.speed <= 50) {
+            currentAvatar.state.heading = degree;
+            currentAvatar.state.facing = degree;
+        }
+        currentAvatar.state.desiredSpeed = Math.max(0, Math.min(speed, 100));
+    };
+    interpreter.setProperty(globalObject, 'swim', wrap(swim));
+    interpreter.setProperty(globalObject, 'drive', wrap(swim));
+
+    interpreter.setProperty(globalObject, 'stop', wrap(() => { currentAvatar.state.desiredSpeed = 0; }));
     interpreter.setProperty(globalObject, 'getX', wrap(() => currentAvatar.state.x));
     interpreter.setProperty(globalObject, 'getY', wrap(() => currentAvatar.state.y));
     interpreter.setProperty(globalObject, 'health', wrap(() => 100 - currentAvatar.state.damage));
     interpreter.setProperty(globalObject, 'speed', wrap(() => currentAvatar.state.speed));
+    interpreter.setProperty(globalObject, 'damage', wrap(() => currentAvatar.state.damage));
+
+    const mathObj = interpreter.getProperty(globalObject, 'Math');
+    if (mathObj) {
+      const wrapMath = (func: Function) => interpreter.createNativeFunction(func);
+      interpreter.setProperty(mathObj, 'sin_deg', wrapMath((deg: number) => Math.sin(toRadians(deg))));
+      interpreter.setProperty(mathObj, 'cos_deg', wrapMath((deg: number) => Math.cos(toRadians(deg))));
+      interpreter.setProperty(mathObj, 'tan_deg', wrapMath((deg: number) => Math.tan(toRadians(deg))));
+      interpreter.setProperty(mathObj, 'asin_deg', wrapMath((num: number) => toDegrees(Math.asin(num))));
+      interpreter.setProperty(mathObj, 'acos_deg', wrapMath((num: number) => toDegrees(Math.acos(num))));
+      interpreter.setProperty(mathObj, 'atan_deg', wrapMath((num: number) => toDegrees(Math.atan(num))));
+    }
   }
 
-  checkWinCondition(_finalState: GameState, _solutionConfig: SolutionConfig): boolean {
-    return true; // Win condition is determined by the engine's internal state
+  checkWinCondition(finalState: GameState, _solutionConfig: SolutionConfig): boolean {
+    const finalStateTyped = finalState as PondGameState;
+    const player = finalStateTyped.avatars.find(a => a.visualizationIndex === 0);
+    const others = finalStateTyped.avatars.filter(a => a.visualizationIndex !== 0);
+    return !!(player && !player.dead && others.every(o => o.dead));
   }
 }

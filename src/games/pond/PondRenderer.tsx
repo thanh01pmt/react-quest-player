@@ -12,23 +12,22 @@ const MISSILE_RADIUS = 5;
 
 const POND_COLOURS = ['#ff8b00', '#c90015', '#166c0b', '#223068'];
 
-// Helper to convert 0-100 coordinate to canvas coordinate
 const toCanvas = (val: number) => (val / 100) * (CANVAS_SIZE - AVATAR_SIZE) + AVATAR_HALF_SIZE;
+const toCanvasNoMargin = (val: number) => (val / 100) * CANVAS_SIZE;
 
 export const PondRenderer: IGameRenderer = ({ gameState }) => {
   const state = gameState as PondGameState;
   
   const displayRef = useRef<HTMLCanvasElement>(null);
   const scratchRef = useRef<HTMLCanvasElement>(null);
-  const sprites = useMemo(() => new Image(), []);
+  const sprites = useMemo(() => {
+      const img = new Image();
+      img.src = '/assets/pond/sprites.png';
+      return img;
+  }, []);
 
-  // Preload sprites
   useEffect(() => {
-    sprites.src = '/assets/pond/sprites.png';
-  }, [sprites]);
-
-  useEffect(() => {
-    if (!state || !sprites.complete) return;
+    if (!state || !sprites.complete || sprites.naturalHeight === 0) return;
 
     const displayCtx = displayRef.current?.getContext('2d');
     const scratchCtx = scratchRef.current?.getContext('2d');
@@ -36,14 +35,12 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
     if (!displayCtx || !scratchCtx) return;
 
     // --- Draw on scratch canvas ---
-    // 1. Clear with blue background
-    scratchCtx.beginPath();
-    scratchCtx.rect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    scratchCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     scratchCtx.fillStyle = '#527dbf';
-    scratchCtx.fill();
+    scratchCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // 2. Draw avatars (dead ones first)
-    const sortedAvatars = [...state.avatars].sort((a, b) => (a.dead ? 1 : 0) - (b.dead ? 1 : 0));
+    // Draw avatars (dead ones first)
+    const sortedAvatars = [...state.avatars].sort((a, b) => (a.dead ? -1 : 1) - (b.dead ? -1 : 1));
     for (const avatar of sortedAvatars) {
         const x = toCanvas(avatar.x);
         const y = toCanvas(100 - avatar.y);
@@ -56,47 +53,95 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
             scratchCtx.globalAlpha = 0.25;
         }
         
-        // Draw avatar body (simplified: no head rotation for now)
+        // Draw wake bubbles if moving
+        if (avatar.speed > 0) {
+            let speedSprite = 0;
+            if (avatar.speed > 50) speedSprite = 0;
+            else if (avatar.speed > 25) speedSprite = AVATAR_SIZE;
+            else speedSprite = AVATAR_SIZE * 2;
+            scratchCtx.save();
+            scratchCtx.rotate(-avatar.heading * Math.PI / 180);
+            scratchCtx.drawImage(sprites, AVATAR_SIZE * 13, speedSprite, AVATAR_SIZE, AVATAR_SIZE, 7 - AVATAR_SIZE * 1.5, -AVATAR_HALF_SIZE, AVATAR_SIZE, AVATAR_SIZE);
+            scratchCtx.restore();
+        }
+
+        // Draw avatar body
         scratchCtx.drawImage(sprites, 0, spriteY, AVATAR_SIZE, AVATAR_SIZE, -AVATAR_HALF_SIZE, -AVATAR_HALF_SIZE, AVATAR_SIZE, AVATAR_SIZE);
+
+        // Draw avatar head
+        const headRadialOffset = 12;
+        const headVerticalOffset = 2;
+        const radians = avatar.facing * Math.PI / 180;
+        const hx = Math.cos(radians) * headRadialOffset;
+        const hy = -Math.sin(radians) * headRadialOffset - headVerticalOffset;
+        scratchCtx.translate(hx, hy);
+
+        const quad = (14 - Math.round(avatar.facing / 360 * 12)) % 12 + 1;
+        const quadAngle = 30;
+        let remainder = avatar.facing % quadAngle;
+        if (remainder >= quadAngle / 2) remainder -= quadAngle;
+        
+        scratchCtx.rotate(-remainder * Math.PI / 180 / 1.5);
+        scratchCtx.drawImage(sprites, quad * AVATAR_SIZE, spriteY, AVATAR_SIZE, AVATAR_SIZE, 2 - AVATAR_HALF_SIZE, 2 - AVATAR_HALF_SIZE, AVATAR_SIZE, AVATAR_SIZE);
+        
         scratchCtx.restore();
     }
     
-    // 3. Draw missiles
+    // Draw missiles
     for (const missile of state.missiles) {
-        const x = toCanvas(missile.x);
-        const y = toCanvas(100 - missile.y);
-        const shadowY = toCanvas(100 - missile.shadowY);
-        const owner = state.avatars.find(a => a.id === missile.ownerId);
-        const color = owner ? POND_COLOURS[owner.visualizationIndex % POND_COLOURS.length] : '#000';
+      const x = toCanvas(missile.x);
+      const y = toCanvas(100 - missile.y);
+      const shadowY = toCanvas(100 - missile.shadowY);
+      const owner = state.avatars.find(a => a.id === missile.ownerId);
+      const color = owner ? POND_COLOURS[owner.visualizationIndex % POND_COLOURS.length] : '#000';
 
-        // Draw shadow
-        scratchCtx.beginPath();
-        scratchCtx.arc(x, shadowY, Math.max(0, 1 - missile.parabola / 10) * MISSILE_RADIUS, 0, 2 * Math.PI);
-        scratchCtx.fillStyle = `rgba(0, 0, 0, 0.2)`;
-        scratchCtx.fill();
+      // Draw shadow
+      scratchCtx.beginPath();
+      scratchCtx.arc(x, shadowY, Math.max(0, 1 - missile.parabola / 10) * MISSILE_RADIUS, 0, 2 * Math.PI);
+      scratchCtx.fillStyle = `rgba(0, 0, 0, 0.2)`;
+      scratchCtx.fill();
 
-        // Draw missile
-        scratchCtx.beginPath();
-        scratchCtx.arc(x, y, MISSILE_RADIUS, 0, 2 * Math.PI);
-        scratchCtx.fillStyle = color;
-        scratchCtx.fill();
-    }
-
-    // 4. Draw events (e.g., explosions)
+      // Draw missile
+      scratchCtx.beginPath();
+      scratchCtx.arc(x, y, MISSILE_RADIUS, 0, 2 * Math.PI);
+      scratchCtx.fillStyle = color;
+      scratchCtx.fill();
+  }
+    
+    // Draw events
     for (const event of state.events) {
         if (event.type === 'BOOM') {
-            const x = toCanvas(event.x);
-            const y = toCanvas(100 - event.y);
+            const x = toCanvasNoMargin(event.x);
+            const y = toCanvasNoMargin(100 - event.y);
             scratchCtx.beginPath();
             scratchCtx.arc(x, y, MISSILE_RADIUS * 2, 0, 2 * Math.PI);
             scratchCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
             scratchCtx.lineWidth = MISSILE_RADIUS;
             scratchCtx.stroke();
+        } else if (event.type === 'SCAN') {
+            const avatar = state.avatars.find(a => a.id === event.avatarId);
+            if(avatar) {
+                const x = toCanvas(avatar.x);
+                const y = toCanvas(100 - avatar.y);
+                const halfRes = Math.max(event.resolution / 2, 0.5);
+                const angle1 = -(event.degree + halfRes) * Math.PI / 180;
+                const angle2 = -(event.degree - halfRes) * Math.PI / 180;
+
+                scratchCtx.beginPath();
+                scratchCtx.moveTo(x,y);
+                const r = 200;
+                scratchCtx.arc(x, y, r, angle1, angle2);
+                scratchCtx.lineTo(x,y);
+                
+                const gradient = scratchCtx.createRadialGradient(x, y, AVATAR_HALF_SIZE, x, y, r);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                scratchCtx.fillStyle = gradient;
+                scratchCtx.fill();
+            }
         }
     }
 
-
-    // --- Copy scratch to display ---
     displayCtx.drawImage(scratchRef.current!, 0, 0);
 
   }, [state, sprites.complete]);
