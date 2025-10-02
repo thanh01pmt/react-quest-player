@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import i18n from '../../i18n'; // Import the i18next instance
+import i18n from '../../i18n';
 import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
@@ -44,17 +44,35 @@ export const QuestPlayer: React.FC = () => {
     message: '',
   });
   const [blockCount, setBlockCount] = useState(0);
+  const [blocklyKey, setBlocklyKey] = useState(0);
+  
+  // ADDED: State to force re-render after translations are added
+  const [translationVersion, setTranslationVersion] = useState(0);
 
-  // ADDED: useEffect to dynamically load translations from the quest file
+  // Effect to listen for language changes
+  useEffect(() => {
+    const handleLanguageChange = () => {
+      if (questData) {
+        initializeGame(questData.gameType).then(() => {
+          setBlocklyKey(prev => prev + 1);
+        });
+      }
+    };
+    i18n.on('languageChanged', handleLanguageChange);
+    return () => {
+      i18n.off('languageChanged', handleLanguageChange);
+    };
+  }, [questData]);
+
+  // Effect to dynamically load translations from the quest file
   useEffect(() => {
     if (questData?.translations) {
       const { translations } = questData;
       Object.keys(translations).forEach((lang) => {
         i18n.addResourceBundle(lang, 'translation', translations[lang], true, true);
       });
-      // Force a re-render if the language has already been loaded
-      // to ensure the new translations are picked up immediately.
-      i18n.changeLanguage(i18n.language); 
+      // Force a re-render to make sure components pick up the new translations
+      setTranslationVersion(v => v + 1);
     }
   }, [questData]);
 
@@ -180,13 +198,13 @@ export const QuestPlayer: React.FC = () => {
                 gameConfig={questData.gameConfig}
               />
             ) : (
-              <div className="emptyState">
+              <div className="emptyState" key={translationVersion}>
                 <h2>{t('Games.loadQuest')}</h2>
               </div>
             )}
 
             {questData && (
-              <div className="descriptionArea">
+              <div className="descriptionArea" key={translationVersion}>
                 {t('Games.task')}: {t(questData.descriptionKey)}
               </div>
             )}
@@ -194,14 +212,14 @@ export const QuestPlayer: React.FC = () => {
 
           <div className="importer-container">
             <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
-            {importError && <p style={{ color: 'red', fontSize: '12px', textAlign: 'center' }}>{importError}</p>}
             <LanguageSelector />
+            {importError && <p style={{ color: 'red', fontSize: '12px', textAlign: 'center' }}>{importError}</p>}
           </div>
         </div>
         <div className="blocklyColumn">
           {questData && GameEngine ? (
             <BlocklyWorkspace
-              key={questData.id}
+              key={`${questData.id}-${blocklyKey}`}
               className="fill-container"
               toolboxConfiguration={questData.blocklyConfig.toolbox}
               initialXml={questData.blocklyConfig.startBlocks}
@@ -228,7 +246,7 @@ export const QuestPlayer: React.FC = () => {
               }}
             />
           ) : (
-            <div className="emptyState">
+            <div className="emptyState" key={translationVersion}>
               <h2>{t('Games.blocklyArea')}</h2>
               <p>{t('Games.waitingForQuest')}</p>
             </div>
