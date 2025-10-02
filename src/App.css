@@ -76,6 +76,7 @@ body {
   position: relative; 
   height: 100vh;
   width: calc(100vw - 450px);
+  border: 1px solid var(--border-color);
   /* flex-grow: 1; */
 }
 
