@@ -59,6 +59,16 @@ class Avatar {
     this.interpreter = null;
   }
 
+  addDamage(damage: number): boolean {
+    if (this.state.dead) return false;
+    this.state.damage += damage;
+    if (this.state.damage >= 100) {
+      this.state.dead = true;
+      return true; // Avatar just died
+    }
+    return false; // Avatar survived
+  }
+
   private pointsToAngle(x1: number, y1: number, x2: number, y2: number): number {
     // Invert Y-axis for correct angle calculation in game coordinates (0-East, 90-North)
     const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
@@ -155,7 +165,8 @@ export class PondEngine implements IGameEngine {
   }
   
   private updateAvatars() {
-    for(const avatar of this.avatars) {
+    // Update movement and wall collisions
+    for (const avatar of this.avatars) {
         if (avatar.state.dead) continue;
 
         if (avatar.state.speed < avatar.state.desiredSpeed) {
@@ -171,14 +182,57 @@ export class PondEngine implements IGameEngine {
             avatar.state.y += speed * Math.sin(radians);
 
             if (avatar.state.x < 0 || avatar.state.x > 100 || avatar.state.y < 0 || avatar.state.y > 100) {
+                const wallCrashX = avatar.state.x;
+                const wallCrashY = avatar.state.y;
                 avatar.state.x = Math.max(0, Math.min(avatar.state.x, 100));
                 avatar.state.y = Math.max(0, Math.min(avatar.state.y, 100));
                 const damage = avatar.state.speed / 100 * COLLISION_DAMAGE;
-                avatar.state.damage += damage;
                 avatar.state.speed = 0;
                 avatar.state.desiredSpeed = 0;
-                this.events.push({ type: 'CRASH', avatarId: avatar.id, damage });
-                if (avatar.state.damage >= 100) avatar.state.dead = true;
+                this.events.push({ type: 'CRASH', avatarId: avatar.id, damage, x: wallCrashX, y: wallCrashY });
+                if (avatar.addDamage(damage)) {
+                  this.events.push({ type: 'DIE', avatarId: avatar.id });
+                }
+            }
+        }
+    }
+
+    // Update avatar-avatar collisions
+    for (let i = 0; i < this.avatars.length; i++) {
+        const avatarA = this.avatars[i];
+        if (avatarA.state.dead) continue;
+        for (let j = i + 1; j < this.avatars.length; j++) {
+            const avatarB = this.avatars[j];
+            if (avatarB.state.dead) continue;
+
+            const dx = avatarA.state.x - avatarB.state.x;
+            const dy = avatarA.state.y - avatarB.state.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < COLLISION_RADIUS) {
+                const damage = Math.max(avatarA.state.speed, avatarB.state.speed) / 100 * COLLISION_DAMAGE;
+                const impactX = (avatarA.state.x + avatarB.state.x) / 2;
+                const impactY = (avatarA.state.y + avatarB.state.y) / 2;
+
+                if (avatarA.addDamage(damage)) this.events.push({ type: 'DIE', avatarId: avatarA.id });
+                avatarA.state.speed = 0;
+                avatarA.state.desiredSpeed = 0;
+                this.events.push({ type: 'CRASH', avatarId: avatarA.id, damage, x: impactX, y: impactY });
+                
+                if (avatarB.addDamage(damage)) this.events.push({ type: 'DIE', avatarId: avatarB.id });
+                avatarB.state.speed = 0;
+                avatarB.state.desiredSpeed = 0;
+                this.events.push({ type: 'CRASH', avatarId: avatarB.id, damage, x: impactX, y: impactY });
+
+                // Physics response: push avatars apart to prevent sticking
+                const overlap = COLLISION_RADIUS - distance;
+                const adjustX = distance === 0 ? overlap / 2 : (dx / distance) * overlap * 0.5;
+                const adjustY = distance === 0 ? overlap / 2 : (dy / distance) * overlap * 0.5;
+                
+                avatarA.state.x = Math.max(0, Math.min(100, avatarA.state.x + adjustX));
+                avatarA.state.y = Math.max(0, Math.min(100, avatarA.state.y + adjustY));
+                avatarB.state.x = Math.max(0, Math.min(100, avatarB.state.x - adjustX));
+                avatarB.state.y = Math.max(0, Math.min(100, avatarB.state.y - adjustY));
             }
         }
     }
@@ -191,7 +245,7 @@ export class PondEngine implements IGameEngine {
 
         if (missile.progress >= missile.range) {
             this.missiles.splice(i, 1);
-            this.events.push({ type: 'BOOM', x: missile.endLoc.x, y: missile.endLoc.y, damage: 10 });
+            let maxDamage = 0;
             
             for (const avatar of this.avatars) {
                 if (avatar.state.dead || avatar.id === missile.ownerId) continue;
@@ -202,13 +256,13 @@ export class PondEngine implements IGameEngine {
 
                 if (distance < COLLISION_RADIUS + 2) {
                     const damage = 25;
-                    avatar.state.damage += damage;
-                     if (avatar.state.damage >= 100) {
-                        avatar.state.dead = true;
+                    maxDamage = Math.max(maxDamage, damage);
+                    if (avatar.addDamage(damage)) {
                         this.events.push({ type: 'DIE', avatarId: avatar.id });
                     }
                 }
             }
+            this.events.push({ type: 'BOOM', x: missile.endLoc.x, y: missile.endLoc.y, damage: maxDamage });
         }
     }
   }
@@ -260,7 +314,7 @@ export class PondEngine implements IGameEngine {
 
     const scan = (degree: number, resolution = 5): number => {
       degree = (degree + 360) % 360;
-      resolution = Math.max(0, Math.min(resolution, 20));
+      resolution = Math.max(1, Math.min(resolution, 20));
       this.events.push({ type: 'SCAN', avatarId: currentAvatar.id, degree, resolution });
       const scan1 = (degree - resolution / 2 + 360) % 360;
       let scan2 = (degree + resolution / 2 + 360) % 360;

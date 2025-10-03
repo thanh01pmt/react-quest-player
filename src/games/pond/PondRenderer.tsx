@@ -131,6 +131,13 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
                 scratchCtx.fillStyle = gradient;
                 scratchCtx.fill();
             }
+        } else if (event.type === 'CRASH') {
+            const x = toCanvasNoMargin(event.x);
+            const y = toCanvasNoMargin(100 - event.y);
+            scratchCtx.beginPath();
+            scratchCtx.arc(x, y, AVATAR_HALF_SIZE / 2, 0, 2 * Math.PI);
+            scratchCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            scratchCtx.fill();
         }
     }
 

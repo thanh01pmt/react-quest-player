@@ -13,6 +13,7 @@ import { Dialog } from '../Dialog';
 import { LanguageSelector } from '../LanguageSelector';
 import { MonacoEditor } from '../MonacoEditor';
 import { EditorToolbar } from '../EditorToolbar';
+import { DocumentationPanel } from '../DocumentationPanel';
 import { countLinesOfCode } from '../../games/codeUtils';
 import { usePrefersColorScheme } from '../../hooks/usePrefersColorScheme';
 import type { TurtleRendererHandle } from '../../games/turtle/TurtleRenderer';
@@ -39,6 +40,7 @@ export const QuestPlayer: React.FC = () => {
   const [dialogState, setDialogState] = useState<DialogState>({ isOpen: false, title: '', message: '' });
   const [blockCount, setBlockCount] = useState(0);
   const [blocklyKey, setBlocklyKey] = useState(0);
+  const [isDocsOpen, setIsDocsOpen] = useState(false);
 
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const rendererRef = useRef<TurtleRendererHandle>(null);
@@ -99,6 +101,7 @@ export const QuestPlayer: React.FC = () => {
       <Dialog isOpen={dialogState.isOpen} title={dialogState.title} onClose={() => setDialogState({ ...dialogState, isOpen: false })}>
         <p>{dialogState.message}</p>
       </Dialog>
+      <DocumentationPanel isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} />
       <div className="appContainer">
         <div className="visualizationColumn">
           <div className="main-content-wrapper">
@@ -108,6 +111,11 @@ export const QuestPlayer: React.FC = () => {
                   <>
                     <button className="primaryButton" onClick={handleRun}>Run Program</button>
                     <button className="primaryButton" onClick={resetGame}>Reset</button>
+                    {questData.gameType === 'pond' && (
+                        <button className="primaryButton" onClick={() => setIsDocsOpen(true)} title={t('Pond.docsTooltip')}>
+                            {t('Pond.documentation')}
+                        </button>
+                    )}
                   </>
                 )}
               </div>

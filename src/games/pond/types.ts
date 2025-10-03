@@ -27,7 +27,7 @@ export interface MissileState {
 // Events are temporary, single-frame occurrences for visualization
 export type PondEvent =
   | { type: 'SCAN'; avatarId: string; degree: number; resolution: number }
-  | { type: 'CRASH'; avatarId: string; damage: number }
+  | { type: 'CRASH'; avatarId: string; damage: number; x: number; y: number }
   | { type: 'BOOM'; x: number; y: number; damage: number }
   | { type: 'DIE'; avatarId: string };
 
