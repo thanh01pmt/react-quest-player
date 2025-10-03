@@ -36,6 +36,7 @@ const mazeConfigSchema = z.object({
     x: z.number(),
     y: z.number(),
   }),
+  renderer: z.enum(['2d', '3d']).optional(),
 });
 
 const turtleConfigSchema = z.object({

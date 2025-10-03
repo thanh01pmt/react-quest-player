@@ -78,6 +78,8 @@ export interface Quest {
   backgroundMusic?: string;
 }
 
+export type ExecutionMode = 'run' | 'debug';
+
 // =================================================================
 // ==                 GAME-SPECIFIC CONFIGURATIONS                ==
 // =================================================================
@@ -94,6 +96,7 @@ export interface MazeConfig {
     start: PlayerStart & { direction: 0 | 1 | 2 | 3 };
   };
   finish: PlayerStart;
+  renderer?: '2d' | '3d';
 }
 
 export interface TurtleConfig {
@@ -159,6 +162,7 @@ export type StepResult = {
  * Defines the contract for an INSTANCE of a GameEngine class.
  */
 export interface IGameEngine {
+  reset?(): void;
   getInitialState(): GameState;
   
   execute(userCode: string, onHighlight: (blockId: string) => void): GameState[] | void;
@@ -182,5 +186,3 @@ export type IGameRenderer = React.FC<{
   gameConfig: GameConfig;
   [key: string]: any; // Allow other props to be passed through (e.g., ref, solutionCommands)
 }>;
-
-export type ExecutionMode = 'run' | 'debug';

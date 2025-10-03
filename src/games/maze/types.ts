@@ -14,15 +14,20 @@ export type Direction = 0 | 1 | 2 | 3;
 export type ResultType = 'unset' | 'success' | 'failure' | 'timeout' | 'error';
 
 /**
+ * Defines the state of the player character.
+ */
+export type PlayerState = {
+  x: number;
+  y: number;
+  direction: Direction;
+  pose?: string; // For special animations like victory dance
+};
+
+/**
  * The specific game state for the Maze game.
  */
 export interface MazeGameState extends GameState {
-  player: {
-    x: number;
-    y: number;
-    direction: Direction;
-    pose?: string; // ADDED: For special animations like victory dance
-  };
+  player: PlayerState;
   result: ResultType;
   isFinished: boolean;
 }

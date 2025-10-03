@@ -1,7 +1,7 @@
 // src/components/QuestPlayer/hooks/useQuestLoader.ts
 
 import { useState, useEffect, useRef } from 'react';
-import type { Quest, IGameEngine, IGameRenderer } from '../../../types';
+import type { Quest, IGameEngine, IGameRenderer, MazeConfig } from '../../../types';
 import { initializeGame } from '../../../games/GameBlockManager';
 import type { TurtleEngine } from '../../../games/turtle/TurtleEngine';
 import type { DrawingCommand } from '../../../games/turtle/types';
@@ -38,7 +38,15 @@ export const useQuestLoader = (questData: Quest | null) => {
           setSolutionCommands(null);
         }
         
-        setGameRenderer(() => gameModule.GameRenderer);
+        // Dynamically select the renderer
+        if (questData.gameType === 'maze' && gameModule.Renderers) {
+            const mazeConfig = questData.gameConfig as MazeConfig;
+            const rendererType = mazeConfig.renderer || '2d';
+            const SelectedRenderer = gameModule.Renderers[rendererType] || gameModule.Renderers['2d'];
+            setGameRenderer(() => SelectedRenderer);
+        } else {
+            setGameRenderer(() => gameModule.GameRenderer);
+        }
 
       } catch (err) {
         if (isMounted) setError(`Could not load game module for ${questData.gameType}.`);
