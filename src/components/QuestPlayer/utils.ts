@@ -6,10 +6,12 @@ import type { ResultType } from '../../games/maze/types';
 import type { ToolboxJSON, ToolboxItem } from '../../types';
 
 // Define a simple theme to control category colors
-export const createBlocklyTheme = (isDark: boolean) => {
-    const baseTheme = isDark ? Blockly.Themes.Classic : Blockly.Themes.Zelos;
-    return Blockly.Theme.defineTheme('customTheme', {
-      name: 'customTheme',
+export const createBlocklyTheme = (themeName: 'zelos' | 'classic', colorScheme: 'light' | 'dark') => {
+    const isDark = colorScheme === 'dark';
+    const baseTheme = themeName === 'zelos' ? Blockly.Themes.Zelos : Blockly.Themes.Classic;
+    
+    return Blockly.Theme.defineTheme(`custom-${themeName}-${colorScheme}`, {
+      name: `custom-${themeName}-${colorScheme}`,
       base: baseTheme,
       categoryStyles: {
         'pond_category': { 'colour': '290' },

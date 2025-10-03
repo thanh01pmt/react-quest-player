@@ -15,6 +15,7 @@ import { MonacoEditor } from '../MonacoEditor';
 import { EditorToolbar } from '../EditorToolbar';
 import { DocumentationPanel } from '../DocumentationPanel';
 import { BackgroundMusic } from '../BackgroundMusic';
+import { SettingsPanel } from '../SettingsPanel';
 import { countLinesOfCode } from '../../games/codeUtils';
 import { usePrefersColorScheme } from '../../hooks/usePrefersColorScheme';
 import { useSoundManager } from '../../hooks/useSoundManager';
@@ -27,6 +28,9 @@ import type { PondGameState } from '../../games/pond/types';
 import '../../App.css';
 import './QuestPlayer.css';
 
+type ColorSchemeMode = 'auto' | 'light' | 'dark';
+type ToolboxMode = 'default' | 'simple' | 'test';
+type BlocklyThemeName = 'zelos' | 'classic';
 
 interface DialogState {
   isOpen: boolean;
@@ -36,22 +40,48 @@ interface DialogState {
 
 export const QuestPlayer: React.FC = () => {
   const { t } = useTranslation();
-  const colorScheme = usePrefersColorScheme();
+  const prefersColorScheme = usePrefersColorScheme();
 
+  // Quest and UI states
   const [questData, setQuestData] = useState<Quest | null>(null);
   const [importError, setImportError] = useState<string>('');
   const [dialogState, setDialogState] = useState<DialogState>({ isOpen: false, title: '', message: '' });
-  const [blockCount, setBlockCount] = useState(0);
   const [isDocsOpen, setIsDocsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Blockly specific states
+  const [blockCount, setBlockCount] = useState(0);
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
+  
+  // Settings states
+  const [renderer, setRenderer] = useState<'geras' | 'zelos'>('zelos');
+  const [blocklyThemeName, setBlocklyThemeName] = useState<BlocklyThemeName>('zelos');
+  const [gridEnabled, setGridEnabled] = useState(true);
+  const [soundsEnabled, setSoundsEnabled] = useState(true);
+  const [colorSchemeMode, setColorSchemeMode] = useState<ColorSchemeMode>('auto');
+  const [toolboxMode, setToolboxMode] = useState<ToolboxMode>('default');
+
+  // Execution states
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('run');
 
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const rendererRef = useRef<TurtleRendererHandle>(null);
 
+  const effectiveColorScheme = useMemo(() => {
+    if (colorSchemeMode === 'auto') {
+      return prefersColorScheme;
+    }
+    return colorSchemeMode;
+  }, [colorSchemeMode, prefersColorScheme]);
+
+  useEffect(() => {
+    document.body.classList.remove('theme-light', 'theme-dark');
+    document.body.classList.add(`theme-${effectiveColorScheme}`);
+  }, [effectiveColorScheme]);
+
   const { GameRenderer, engineRef, solutionCommands, error: questLoaderError } = useQuestLoader(questData);
   const { currentEditor, aceCode, setAceCode, handleEditorChange } = useEditorManager(questData, workspaceRef);
-  const { playSound } = useSoundManager(questData?.sounds);
+  const { playSound } = useSoundManager(questData?.sounds, soundsEnabled);
   
   const handleGameEnd = useCallback(({ isSuccess, finalState }: { isSuccess: boolean, finalState: GameState }) => {
     if (isSuccess) {
@@ -103,7 +133,7 @@ export const QuestPlayer: React.FC = () => {
     workspaceRef.current?.highlightBlock(highlightedBlockId);
   }, [highlightedBlockId]);
 
-  const blocklyTheme = useMemo(() => createBlocklyTheme(colorScheme === 'dark'), [colorScheme]);
+  const blocklyTheme = useMemo(() => createBlocklyTheme(blocklyThemeName, effectiveColorScheme), [blocklyThemeName, effectiveColorScheme]);
 
   const handleRun = (mode: ExecutionMode) => {
     setExecutionMode(mode);
@@ -133,13 +163,27 @@ export const QuestPlayer: React.FC = () => {
     ? processToolbox(questData.blocklyConfig.toolbox, t) 
     : undefined;
 
+  const workspaceConfiguration = useMemo(() => ({
+    theme: blocklyTheme,
+    renderer: renderer,
+    trashcan: true,
+    zoom: { controls: true, wheel: false, startScale: 1.0, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 },
+    grid: { 
+        spacing: 20, 
+        length: 3, 
+        colour: "#ccc", 
+        snap: gridEnabled 
+    },
+    sounds: soundsEnabled,
+  }), [blocklyTheme, renderer, gridEnabled, soundsEnabled]);
+
   return (
     <>
       <Dialog isOpen={dialogState.isOpen} title={dialogState.title} onClose={() => setDialogState({ ...dialogState, isOpen: false })}>
         <p>{dialogState.message}</p>
       </Dialog>
       <DocumentationPanel isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} />
-      <BackgroundMusic src={questData?.backgroundMusic} play={playerStatus === 'running'} />
+      <BackgroundMusic src={questData?.backgroundMusic} play={playerStatus === 'running' && soundsEnabled} />
       <div className="appContainer">
         <div className="visualizationColumn">
           <div className="main-content-wrapper">
@@ -206,6 +250,7 @@ export const QuestPlayer: React.FC = () => {
               supportedEditors={questData.supportedEditors || ['blockly']}
               currentEditor={currentEditor}
               onEditorChange={handleEditorChange}
+              onToggleSettings={() => setIsSettingsOpen(!isSettingsOpen)}
             />
           )}
           {questData && GameRenderer ? (
@@ -215,19 +260,36 @@ export const QuestPlayer: React.FC = () => {
                 onChange={(value) => setAceCode(value || '')}
               />
             ) : (
-              processedToolbox && questData?.blocklyConfig && (
-                <BlocklyWorkspace
-                  key={`${questData.id}`}
-                  className="fill-container"
-                  toolboxConfiguration={processedToolbox}
-                  initialXml={questData.blocklyConfig.startBlocks}
-                  workspaceConfiguration={{ theme: blocklyTheme, trashcan: true, zoom: { controls: true, wheel: false, startScale: 1.0, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 }, grid: { spacing: 20, length: 3, colour: "#ccc", snap: true, } }}
-                  onWorkspaceChange={(workspace) => {
-                    workspaceRef.current = workspace;
-                    setBlockCount(workspace.getAllBlocks(false).length);
-                  }}
+              <>
+                {processedToolbox && questData?.blocklyConfig && (
+                    <BlocklyWorkspace
+                    key={`${questData.id}-${renderer}-${blocklyThemeName}-${effectiveColorScheme}-${toolboxMode}`}
+                    className="fill-container"
+                    toolboxConfiguration={processedToolbox}
+                    initialXml={questData.blocklyConfig.startBlocks}
+                    workspaceConfiguration={workspaceConfiguration}
+                    onWorkspaceChange={(workspace) => {
+                        workspaceRef.current = workspace;
+                        setBlockCount(workspace.getAllBlocks(false).length);
+                    }}
+                    />
+                )}
+                <SettingsPanel 
+                    isOpen={isSettingsOpen}
+                    renderer={renderer}
+                    onRendererChange={setRenderer}
+                    blocklyThemeName={blocklyThemeName}
+                    onBlocklyThemeNameChange={setBlocklyThemeName}
+                    gridEnabled={gridEnabled}
+                    onGridChange={setGridEnabled}
+                    soundsEnabled={soundsEnabled}
+                    onSoundsChange={setSoundsEnabled}
+                    colorSchemeMode={colorSchemeMode}
+                    onColorSchemeChange={setColorSchemeMode}
+                    toolboxMode={toolboxMode}
+                    onToolboxModeChange={setToolboxMode}
                 />
-              )
+              </>
             )
           ) : (
             <div className="emptyState">

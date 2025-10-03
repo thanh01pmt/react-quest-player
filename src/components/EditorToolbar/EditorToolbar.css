@@ -2,13 +2,18 @@
 
 .editorToolbar {
   display: flex;
-  justify-content: flex-end; /* Align items to the right */
+  justify-content: space-between; /* Pushes children to opposite ends */
   align-items: center;
   padding: 4px 10px;
   background-color: var(--button-bg-color);
   border-bottom: 1px solid var(--border-color);
   height: 40px;
   box-sizing: border-box;
+}
+
+.toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
 }
 
 .editorToolbar button {
@@ -37,4 +42,17 @@
   font-size: 14px;
   font-weight: bold;
   color: var(--text-color);
+}
+
+.settings-button {
+    margin-left: 0;
+    margin-right: 8px;
+    padding: 4px; /* Smaller padding for icon button */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-button svg {
+    fill: var(--text-color);
 }

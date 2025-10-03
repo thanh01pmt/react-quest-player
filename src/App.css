@@ -1,24 +1,22 @@
 /* src/App.css */
 
 /* --- CSS Variables for Theming --- */
-:root {
+:root, .theme-light {
   --background-color: #ffffff;
   --text-color: #212121;
   --border-color: #ddd;
   --button-bg-color: #f0f0f0;
   --button-hover-bg-color: #e0e0e0;
-  --visualization-bg: #333;
+  --visualization-bg: #f5f5f5; /* Lighter grey for visualization */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background-color: #1e1e1e;
-    --text-color: #f0f0f0;
-    --border-color: #444;
-    --button-bg-color: #333;
-    --button-hover-bg-color: #444;
-    --visualization-bg: #282828;
-  }
+.theme-dark {
+  --background-color: #1e1e1e;
+  --text-color: #f0f0f0;
+  --border-color: #444;
+  --button-bg-color: #333;
+  --button-hover-bg-color: #444;
+  --visualization-bg: #282828;
 }
 
 /* --- Basic Layout --- */

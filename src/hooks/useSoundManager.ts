@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from 'react';
 
 type SoundMap = Record<string, string> | undefined;
 
-export const useSoundManager = (sounds: SoundMap) => {
+export const useSoundManager = (sounds: SoundMap, enabled = true) => {
   const audioCache = useRef<Record<string, HTMLAudioElement>>({});
 
   useEffect(() => {
@@ -28,6 +28,9 @@ export const useSoundManager = (sounds: SoundMap) => {
   }, [sounds]);
 
   const playSound = useCallback((name: string, volume = 1.0) => {
+    if (!enabled) {
+      return;
+    }
     const audio = audioCache.current[name];
     if (audio) {
       // Sử dụng cloneNode để cho phép phát nhiều âm thanh cùng lúc
@@ -40,7 +43,7 @@ export const useSoundManager = (sounds: SoundMap) => {
     } else {
       console.warn(`Sound "${name}" not found in cache.`);
     }
-  }, []);
+  }, [enabled]);
 
   return { playSound };
 };
