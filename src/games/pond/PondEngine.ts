@@ -60,8 +60,9 @@ class Avatar {
   }
 
   private pointsToAngle(x1: number, y1: number, x2: number, y2: number): number {
+    // Invert Y-axis for correct angle calculation in game coordinates (0-East, 90-North)
     const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
-    return (angle + 450) % 360; // Adjust for 0 degrees being East and Y-axis inverted
+    return (angle + 360) % 360;
   }
 }
 
@@ -165,7 +166,7 @@ export class PondEngine implements IGameEngine {
 
         if (avatar.state.speed > 0) {
             const speed = avatar.state.speed / 100 * AVATAR_SPEED_FACTOR;
-            const radians = ((avatar.state.heading - 90) * Math.PI) / 180; // Game angle to canvas angle
+            const radians = avatar.state.heading * Math.PI / 180;
             avatar.state.x += speed * Math.cos(radians);
             avatar.state.y += speed * Math.sin(radians);
 
@@ -248,7 +249,7 @@ export class PondEngine implements IGameEngine {
         degree = (degree + 360) % 360;
         currentAvatar.state.facing = degree;
         range = Math.max(0, Math.min(range, 70));
-        const radians = ((degree - 90) * Math.PI) / 180;
+        const radians = degree * Math.PI / 180;
         const endLoc = {
             x: startLoc.x + range * Math.cos(radians),
             y: startLoc.y + range * Math.sin(radians),
@@ -272,7 +273,7 @@ export class PondEngine implements IGameEngine {
         const range = Math.sqrt(dx*dx + dy*dy);
         if (range >= closestRange) continue;
         let angle = Math.atan2(dy, dx) * 180 / Math.PI;
-        angle = (angle + 450) % 360;
+        angle = (angle + 360) % 360;
         if (angle < scan1) angle += 360;
         if (scan1 <= angle && angle <= scan2) {
             closestRange = range;
@@ -286,8 +287,8 @@ export class PondEngine implements IGameEngine {
         degree = (degree + 360) % 360;
         if (currentAvatar.state.speed <= 50) {
             currentAvatar.state.heading = degree;
-            currentAvatar.state.facing = degree;
         }
+        currentAvatar.state.facing = degree; // Sync facing with swim direction
         currentAvatar.state.desiredSpeed = Math.max(0, Math.min(speed, 100));
     };
     interpreter.setProperty(globalObject, 'swim', wrap(swim));

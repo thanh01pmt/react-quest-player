@@ -3,6 +3,7 @@
 import { useRef, useEffect, useMemo } from 'react';
 import type { IGameRenderer } from '../../types';
 import type { PondGameState } from './types';
+import { AvatarStats } from './AvatarStats';
 import './Pond.css';
 
 const CANVAS_SIZE = 400;
@@ -34,12 +35,10 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
 
     if (!displayCtx || !scratchCtx) return;
 
-    // --- Draw on scratch canvas ---
     scratchCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     scratchCtx.fillStyle = '#527dbf';
     scratchCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // Draw avatars (dead ones first)
     const sortedAvatars = [...state.avatars].sort((a, b) => (a.dead ? -1 : 1) - (b.dead ? -1 : 1));
     for (const avatar of sortedAvatars) {
         const x = toCanvas(avatar.x);
@@ -53,7 +52,6 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
             scratchCtx.globalAlpha = 0.25;
         }
         
-        // Draw wake bubbles if moving
         if (avatar.speed > 0) {
             let speedSprite = 0;
             if (avatar.speed > 50) speedSprite = 0;
@@ -65,10 +63,8 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
             scratchCtx.restore();
         }
 
-        // Draw avatar body
         scratchCtx.drawImage(sprites, 0, spriteY, AVATAR_SIZE, AVATAR_SIZE, -AVATAR_HALF_SIZE, -AVATAR_HALF_SIZE, AVATAR_SIZE, AVATAR_SIZE);
 
-        // Draw avatar head
         const headRadialOffset = 12;
         const headVerticalOffset = 2;
         const radians = avatar.facing * Math.PI / 180;
@@ -76,7 +72,7 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
         const hy = -Math.sin(radians) * headRadialOffset - headVerticalOffset;
         scratchCtx.translate(hx, hy);
 
-        const quad = (14 - Math.round(avatar.facing / 360 * 12)) % 12 + 1;
+        const quad = (14 - Math.round(((avatar.facing + 360) % 360) / 30)) % 12 + 1;
         const quadAngle = 30;
         let remainder = avatar.facing % quadAngle;
         if (remainder >= quadAngle / 2) remainder -= quadAngle;
@@ -87,28 +83,24 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
         scratchCtx.restore();
     }
     
-    // Draw missiles
     for (const missile of state.missiles) {
-      const x = toCanvas(missile.x);
-      const y = toCanvas(100 - missile.y);
-      const shadowY = toCanvas(100 - missile.shadowY);
-      const owner = state.avatars.find(a => a.id === missile.ownerId);
-      const color = owner ? POND_COLOURS[owner.visualizationIndex % POND_COLOURS.length] : '#000';
+        const x = toCanvas(missile.x);
+        const y = toCanvas(100 - missile.y);
+        const shadowY = toCanvas(100 - missile.shadowY);
+        const owner = state.avatars.find(a => a.id === missile.ownerId);
+        const color = owner ? POND_COLOURS[owner.visualizationIndex % POND_COLOURS.length] : '#000';
 
-      // Draw shadow
-      scratchCtx.beginPath();
-      scratchCtx.arc(x, shadowY, Math.max(0, 1 - missile.parabola / 10) * MISSILE_RADIUS, 0, 2 * Math.PI);
-      scratchCtx.fillStyle = `rgba(0, 0, 0, 0.2)`;
-      scratchCtx.fill();
+        scratchCtx.beginPath();
+        scratchCtx.arc(x, shadowY, Math.max(0, 1 - missile.parabola / 10) * MISSILE_RADIUS, 0, 2 * Math.PI);
+        scratchCtx.fillStyle = `rgba(0, 0, 0, 0.2)`;
+        scratchCtx.fill();
 
-      // Draw missile
-      scratchCtx.beginPath();
-      scratchCtx.arc(x, y, MISSILE_RADIUS, 0, 2 * Math.PI);
-      scratchCtx.fillStyle = color;
-      scratchCtx.fill();
-  }
+        scratchCtx.beginPath();
+        scratchCtx.arc(x, y, MISSILE_RADIUS, 0, 2 * Math.PI);
+        scratchCtx.fillStyle = color;
+        scratchCtx.fill();
+    }
     
-    // Draw events
     for (const event of state.events) {
         if (event.type === 'BOOM') {
             const x = toCanvasNoMargin(event.x);
@@ -149,8 +141,11 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
 
   return (
     <div className="pondContainer">
-      <canvas id="displayCanvas" ref={displayRef} width={CANVAS_SIZE} height={CANVAS_SIZE}></canvas>
-      <canvas id="scratchCanvas" ref={scratchRef} width={CANVAS_SIZE} height={CANVAS_SIZE}></canvas>
+      <div className="canvasWrapper">
+        <canvas id="displayCanvas" ref={displayRef} width={CANVAS_SIZE} height={CANVAS_SIZE}></canvas>
+        <canvas id="scratchCanvas" ref={scratchRef} width={CANVAS_SIZE} height={CANVAS_SIZE}></canvas>
+      </div>
+      {state && state.avatars && <AvatarStats avatars={state.avatars} />}
     </div>
   );
 };
