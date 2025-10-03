@@ -66,6 +66,12 @@ export const QuestPlayer: React.FC = () => {
   useEffect(() => {
     if (questLoaderError) setImportError(questLoaderError);
   }, [questLoaderError]);
+  
+  useEffect(() => {
+    if (engineRef.current) {
+        resetGame();
+    }
+  }, [engineRef.current, resetGame]);
 
   const blocklyTheme = useMemo(() => createBlocklyTheme(colorScheme === 'dark'), [colorScheme]);
 
@@ -153,7 +159,7 @@ export const QuestPlayer: React.FC = () => {
             />
           )}
           {questData && GameRenderer ? (
-            currentEditor === 'monaco' && questData?.monacoConfig ? (
+            currentEditor === 'monaco' ? (
               <MonacoEditor
                 initialCode={aceCode}
                 onChange={(value) => setAceCode(value || '')}

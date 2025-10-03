@@ -1,6 +1,7 @@
 // src/components/DocumentationPanel/index.tsx
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import './DocumentationPanel.css';
 
 interface DocumentationPanelProps {
@@ -9,17 +10,21 @@ interface DocumentationPanelProps {
 }
 
 export const DocumentationPanel: React.FC<DocumentationPanelProps> = ({ isOpen, onClose }) => {
+  const { t, i18n } = useTranslation();
+
   if (!isOpen) {
     return null;
   }
 
-  const docUrl = '/assets/pond/docs.html';
+  // Determine the language code (e.g., 'en', 'vi')
+  const langCode = i18n.language.split('-')[0];
+  const docUrl = langCode === 'vi' ? '/assets/pond/docs-vi.html' : '/assets/pond/docs.html';
 
   return (
     <div className="docs-overlay">
       <div className="docs-panel">
         <div className="docs-header">
-          <h3>Pond API Documentation</h3>
+          <h3>{t('Pond.documentation')}</h3>
           <button onClick={onClose} className="docs-close-button">&times;</button>
         </div>
         <div className="docs-body">
