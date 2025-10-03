@@ -49,6 +49,11 @@ export interface BlocklyConfig {
  */
 export type GameConfig = MazeConfig | TurtleConfig | PondConfig; // BirdConfig and MusicConfig removed for now
 
+// Configuration for Monaco editor
+export interface MonacoConfig {
+  initialCode: string;
+}
+
 /**
  * Defines the structure for a single quest file.
  * This is the main data structure loaded by the QuestPlayer.
@@ -60,9 +65,13 @@ export interface Quest {
   titleKey: string;
   descriptionKey: string;
   
+  supportedEditors?: ('blockly' | 'monaco')[]; // NEW: Specify editor type
+
   translations?: Record<string, Record<string, string>>;
 
-  blocklyConfig: BlocklyConfig;
+  blocklyConfig?: BlocklyConfig; // Now optional
+  monacoConfig?: MonacoConfig; // NEW: Monaco-specific config
+  
   gameConfig: GameConfig;
   solution: SolutionConfig;
 }

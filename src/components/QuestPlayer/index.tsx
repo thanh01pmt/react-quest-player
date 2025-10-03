@@ -6,11 +6,14 @@ import i18n from '../../i18n';
 import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
+import { transform } from '@babel/standalone';
 import type { Quest, GameEngineConstructor, IGameEngine, GameState, IGameRenderer, ToolboxJSON, ToolboxItem } from '../../types';
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
 import { LanguageSelector } from '../LanguageSelector';
+import { MonacoEditor } from '../MonacoEditor';
+import { EditorToolbar } from '../EditorToolbar';
 import { initializeGame } from '../../games/GameBlockManager';
 import { countLinesOfCode } from '../../games/codeUtils';
 import type { ResultType } from '../../games/maze/types';
@@ -30,7 +33,6 @@ interface DialogState {
 }
 
 const getFailureMessage = (t: (key: string, options?: { defaultValue: string }) => string, result: ResultType): string => {
-  // Add a safeguard for undefined result
   if (!result) {
     return t('Games.dialogReason') + ': ' + t('Games.resultFailure');
   }
@@ -87,6 +89,8 @@ export const QuestPlayer: React.FC = () => {
   const [GameEngine, setGameEngine] = useState<GameEngineConstructor | null>(null);
   const [GameRenderer, setGameRenderer] = useState<IGameRenderer | null>(null);
   const [solutionCommands, setSolutionCommands] = useState<DrawingCommand[] | null>(null);
+  const [aceCode, setAceCode] = useState<string>('');
+  const [currentEditor, setCurrentEditor] = useState<'blockly' | 'monaco'>('blockly');
 
   const gameEngine = useRef<IGameEngine | null>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
@@ -185,11 +189,24 @@ export const QuestPlayer: React.FC = () => {
     if (GameEngine && questData) {
       const engine = new GameEngine(questData.gameConfig);
       gameEngine.current = engine;
+      const initialEditor = questData.supportedEditors?.[0] || 'blockly';
+      setCurrentEditor(initialEditor);
+
+      if (initialEditor === 'monaco' && questData.monacoConfig) {
+        setAceCode(questData.monacoConfig.initialCode);
+      } else {
+        setAceCode(''); // Reset code if default is blockly
+      }
+
       setCurrentGameState(engine.getInitialState());
       setPlayerStatus('idle');
       setExecutionLog(null);
       setBlockCount(0);
 
+      if (currentEditor === 'monaco' && questData.monacoConfig) {
+        setAceCode(questData.monacoConfig.initialCode);
+      }
+      
       if (questData.gameType === 'turtle' && (engine as TurtleEngine).runHeadless && (questData.solution as any).solutionScript) {
         const commands = (engine as TurtleEngine).runHeadless((questData.solution as any).solutionScript);
         setSolutionCommands(commands);
@@ -223,17 +240,16 @@ export const QuestPlayer: React.FC = () => {
         setPlayerStatus('finished');
         let isSuccess = false;
 
-        // Determine success based on engine type
-        if (engine.step) { // Step-based engines
+        if (engine.step) {
             if (questData.gameType === 'turtle' && rendererRef.current?.getCanvasData) {
                 const { userImageData, solutionImageData } = rendererRef.current.getCanvasData();
                 if (userImageData && solutionImageData && (engine as TurtleEngine).verifySolution) {
                     isSuccess = (engine as TurtleEngine).verifySolution(userImageData, solutionImageData, questData.solution.pixelTolerance || 0);
                 }
-            } else { // Other step-based engines like Pond
+            } else {
                 isSuccess = engine.checkWinCondition(finalEngineState, questData.solution);
             }
-        } else { // Batch engines
+        } else {
             isSuccess = engine.checkWinCondition(finalEngineState, questData.solution);
         }
         
@@ -285,8 +301,26 @@ export const QuestPlayer: React.FC = () => {
   }, [playerStatus, executionLog, t, questData]);
   
   const handleRun = () => {
-    if (!gameEngine.current || !workspaceRef.current || playerStatus === 'running') return;
-    const userCode = javascriptGenerator.workspaceToCode(workspaceRef.current);
+    if (!gameEngine.current || playerStatus === 'running') return;
+    
+    let userCode = '';
+    if (currentEditor === 'monaco') {
+      try {
+        const es5Code = transform(aceCode, { presets: ['env'] }).code;
+        if (!es5Code) {
+          throw new Error("Babel transpilation failed.");
+        }
+        userCode = es5Code;
+      } catch (e: any) {
+        setDialogState({ isOpen: true, title: 'Syntax Error', message: e.message });
+        return;
+      }
+    } else if (workspaceRef.current) {
+      userCode = javascriptGenerator.workspaceToCode(workspaceRef.current);
+    } else {
+        return;
+    }
+
     frameIndex.current = 0;
     lastStepTime.current = 0;
     const log = gameEngine.current.execute(userCode);
@@ -314,9 +348,24 @@ export const QuestPlayer: React.FC = () => {
     setQuestData(loadedQuest);
     setImportError('');
   };
+
+  const handleEditorChange = (editor: 'blockly' | 'monaco') => {
+    if (currentEditor === 'monaco' && editor === 'blockly') {
+      if (!window.confirm(t('Games.breakLink'))) {
+        return; // User cancelled the switch
+      }
+    }
+
+    if (editor === 'monaco' && workspaceRef.current) {
+        const code = javascriptGenerator.workspaceToCode(workspaceRef.current);
+        setAceCode(code);
+    }
+    setCurrentEditor(editor);
+  };
   
-  const maxBlocks = questData?.blocklyConfig.maxBlocks;
-  const processedToolbox = questData ? processToolbox(questData.blocklyConfig.toolbox, t) : undefined;
+  const maxBlocks = questData?.blocklyConfig?.maxBlocks;
+  const processedToolbox = questData?.supportedEditors?.includes('blockly') && questData.blocklyConfig ? 
+    processToolbox(questData.blocklyConfig.toolbox, t) : undefined;
   
   const visualizationProps = {
     gameState: currentGameState,
@@ -343,7 +392,7 @@ export const QuestPlayer: React.FC = () => {
                 )}
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                {questData && maxBlocks && isFinite(maxBlocks) && (
+                {questData?.supportedEditors?.includes('blockly') && maxBlocks && isFinite(maxBlocks) && (
                   <div style={{ fontFamily: 'monospace' }}>{t('Games.blocks')}: {blockCount} / {maxBlocks}</div>
                 )}
               </div>
@@ -366,18 +415,34 @@ export const QuestPlayer: React.FC = () => {
           </div>
         </div>
         <div className="blocklyColumn">
-          {questData && GameEngine && processedToolbox ? (
-            <BlocklyWorkspace
-              key={`${questData.id}-${blocklyKey}`}
-              className="fill-container"
-              toolboxConfiguration={processedToolbox}
-              initialXml={questData.blocklyConfig.startBlocks}
-              workspaceConfiguration={{ theme: blocklyTheme, trashcan: true, zoom: { controls: true, wheel: false, startScale: 1.0, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 }, grid: { spacing: 20, length: 3, colour: "#ccc", snap: true, } }}
-              onWorkspaceChange={(workspace) => {
-                workspaceRef.current = workspace;
-                setBlockCount(workspace.getAllBlocks(false).length);
-              }}
+          {questData && (
+            <EditorToolbar
+              supportedEditors={questData.supportedEditors || ['blockly']}
+              currentEditor={currentEditor}
+              onEditorChange={handleEditorChange}
             />
+          )}
+          {questData && GameEngine ? (
+            currentEditor === 'monaco' && questData?.monacoConfig ? (
+              <MonacoEditor
+                initialCode={aceCode}
+                onChange={(value) => setAceCode(value || '')}
+              />
+            ) : (
+              processedToolbox && questData?.blocklyConfig && (
+                <BlocklyWorkspace
+                  key={`${questData.id}-${blocklyKey}`}
+                  className="fill-container"
+                  toolboxConfiguration={processedToolbox}
+                  initialXml={questData.blocklyConfig.startBlocks}
+                  workspaceConfiguration={{ theme: blocklyTheme, trashcan: true, zoom: { controls: true, wheel: false, startScale: 1.0, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 }, grid: { spacing: 20, length: 3, colour: "#ccc", snap: true, } }}
+                  onWorkspaceChange={(workspace) => {
+                    workspaceRef.current = workspace;
+                    setBlockCount(workspace.getAllBlocks(false).length);
+                  }}
+                />
+              )
+            )
           ) : (
             <div className="emptyState" key={translationVersion}>
               <h2>{t('Games.blocklyArea')}</h2>

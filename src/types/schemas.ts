@@ -15,6 +15,11 @@ const blocklyConfigSchema = z.object({
   startBlocks: z.string().optional(),
 });
 
+// NEW: Schema for Monaco configuration
+const monacoConfigSchema = z.object({
+    initialCode: z.string(),
+});
+
 // --- Game-specific Config Schemas ---
 
 const mazeConfigSchema = z.object({
@@ -83,9 +88,13 @@ export const questSchema = z.object({
   titleKey: z.string(),
   descriptionKey: z.string(),
   
+  supportedEditors: z.array(z.enum(['blockly', 'monaco'])).default(['blockly']),
+
   translations: z.record(z.string(), z.record(z.string(), z.string())).optional(),
 
-  blocklyConfig: blocklyConfigSchema,
+  blocklyConfig: blocklyConfigSchema.optional(),
+  monacoConfig: monacoConfigSchema.optional(),
+
   gameConfig: gameConfigSchema,
   solution: solutionConfigSchema,
 });
