@@ -57,5 +57,10 @@
   },
   "solution": {
     "type": "reach_target"
-  }
+  },
+  "sounds": {
+    "win": "/assets/maze/win.mp3",
+    "fail": "/assets/maze/fail_pegman.mp3"
+  },
+  "backgroundMusic": "/assets/music/bg_music.mp3"
 }

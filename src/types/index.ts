@@ -74,6 +74,8 @@ export interface Quest {
   
   gameConfig: GameConfig;
   solution: SolutionConfig;
+  sounds?: Record<string, string>;
+  backgroundMusic?: string;
 }
 
 // =================================================================

@@ -76,6 +76,7 @@ class Avatar {
     if (this.state.dead) return false;
     this.state.damage += damage;
     if (this.state.damage >= 100) {
+      this.state.damage = 100; // Clamp damage to 100
       this.state.dead = true;
       return true; // Avatar just died
     }

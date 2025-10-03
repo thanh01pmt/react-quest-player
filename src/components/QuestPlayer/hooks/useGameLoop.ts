@@ -20,7 +20,8 @@ export const useGameLoop = (
   engineRef: React.RefObject<IGameEngine>,
   questData: Quest | null,
   rendererRef: React.RefObject<TurtleRendererHandle>,
-  onGameEnd: (result: GameLoopResult) => void
+  onGameEnd: (result: GameLoopResult) => void,
+  playSound: (name: string, volume?: number) => void,
 ) => {
 //   const { t } = useTranslation();
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
@@ -91,6 +92,12 @@ export const useGameLoop = (
         } else {
           isSuccess = engine.checkWinCondition(finalEngineState, questData.solution);
         }
+
+        if (isSuccess) {
+            playSound('win');
+        } else {
+            playSound('fail');
+        }
         
         const finalState = { ...finalEngineState, result: isSuccess ? 'success' : 'failure' };
         setCurrentGameState(finalState);
@@ -138,7 +145,7 @@ export const useGameLoop = (
     return () => {
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [playerStatus, executionLog, questData, engineRef, rendererRef, onGameEnd]);
+  }, [playerStatus, executionLog, questData, engineRef, rendererRef, onGameEnd, playSound]);
 
   return {
     currentGameState,

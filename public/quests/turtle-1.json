@@ -63,5 +63,8 @@
     "pixelTolerance": 100,
     "solutionBlocks": "<xml xmlns=\"https://developers.google.com/blockly/xml\"><block type=\"turtle_repeat_internal\"><field name=\"TIMES\">4</field><statement name=\"DO\"><block type=\"turtle_move_internal\"><field name=\"VALUE\">100</field><next><block type=\"turtle_turn_internal\"><field name=\"VALUE\">90</field></block></next></block></statement></block></xml>",
     "solutionScript": "for (var count = 0; count < 4; count++) { moveForward(100); turnRight(90); }"
+  },
+  "sounds": {
+    "win": "/assets/turtle/win.mp3"
   }
 }

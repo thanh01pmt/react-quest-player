@@ -14,13 +14,16 @@ import { LanguageSelector } from '../LanguageSelector';
 import { MonacoEditor } from '../MonacoEditor';
 import { EditorToolbar } from '../EditorToolbar';
 import { DocumentationPanel } from '../DocumentationPanel';
+import { BackgroundMusic } from '../BackgroundMusic';
 import { countLinesOfCode } from '../../games/codeUtils';
 import { usePrefersColorScheme } from '../../hooks/usePrefersColorScheme';
+import { useSoundManager } from '../../hooks/useSoundManager';
 import type { TurtleRendererHandle } from '../../games/turtle/TurtleRenderer';
 import { getFailureMessage, processToolbox, createBlocklyTheme } from './utils';
 import { useQuestLoader } from './hooks/useQuestLoader';
 import { useEditorManager } from './hooks/useEditorManager';
 import { useGameLoop } from './hooks/useGameLoop'; // Import hook
+import type { PondGameState } from '../../games/pond/types';
 import '../../App.css';
 import './QuestPlayer.css';
 
@@ -47,6 +50,7 @@ export const QuestPlayer: React.FC = () => {
 
   const { GameRenderer, engineRef, solutionCommands, error: questLoaderError } = useQuestLoader(questData);
   const { currentEditor, aceCode, setAceCode, handleEditorChange } = useEditorManager(questData, workspaceRef);
+  const { playSound } = useSoundManager(questData?.sounds);
   
   const handleGameEnd = useCallback(({ isSuccess, finalState }: { isSuccess: boolean, finalState: GameState }) => {
     if (isSuccess) {
@@ -61,7 +65,7 @@ export const QuestPlayer: React.FC = () => {
     }
   }, [t, aceCode, currentEditor]);
   
-  const { currentGameState, runGame, resetGame } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd);
+  const { currentGameState, playerStatus, runGame, resetGame } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound);
 
   useEffect(() => {
     if (questLoaderError) setImportError(questLoaderError);
@@ -72,6 +76,27 @@ export const QuestPlayer: React.FC = () => {
         resetGame();
     }
   }, [engineRef.current, resetGame]);
+
+  useEffect(() => {
+    if (questData?.gameType === 'pond' && currentGameState) {
+      const pondState = currentGameState as PondGameState;
+      if (pondState.events && pondState.events.length > 0) {
+        for (const event of pondState.events) {
+          switch (event.type) {
+            case 'BOOM':
+              playSound('boom', event.damage / 25);
+              break;
+            case 'CRASH':
+              playSound('crash', event.damage / 10);
+              break;
+            case 'DIE':
+              playSound('splash');
+              break;
+          }
+        }
+      }
+    }
+  }, [currentGameState, questData?.gameType, playSound]);
 
   const blocklyTheme = useMemo(() => createBlocklyTheme(colorScheme === 'dark'), [colorScheme]);
 
@@ -108,6 +133,7 @@ export const QuestPlayer: React.FC = () => {
         <p>{dialogState.message}</p>
       </Dialog>
       <DocumentationPanel isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} />
+      <BackgroundMusic src={questData?.backgroundMusic} play={playerStatus === 'running'} />
       <div className="appContainer">
         <div className="visualizationColumn">
           <div className="main-content-wrapper">

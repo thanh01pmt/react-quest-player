@@ -97,6 +97,8 @@ export const questSchema = z.object({
 
   gameConfig: gameConfigSchema,
   solution: solutionConfigSchema,
+  sounds: z.record(z.string(), z.string()).optional(),
+  backgroundMusic: z.string().optional(),
 });
 
 export type Quest = z.infer<typeof questSchema>;

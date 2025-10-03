@@ -146,5 +146,11 @@
   },
   "solution": {
     "type": "survive_battle"
-  }
+  },
+  "sounds": {
+      "boom": "/assets/pond/boom.mp3",
+      "splash": "/assets/pond/splash.mp3",
+      "crash": "/assets/pond/whack.mp3"
+  },
+  "backgroundMusic": "/assets/music/bg_music_1.wav"
 }
