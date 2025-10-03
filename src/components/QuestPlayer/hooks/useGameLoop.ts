@@ -60,6 +60,11 @@ export const useGameLoop = (
     const engine = engineRef.current;
     if (!engine) return;
 
+    // Hard-reset the internal state of the engine before getting the new initial state.
+    if ('reset' in engine && typeof engine.reset === 'function') {
+      engine.reset();
+    }
+
     frameIndex.current = 0;
     setCurrentGameState(engine.getInitialState());
     setExecutionLog(null);

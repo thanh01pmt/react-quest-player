@@ -1,6 +1,6 @@
 // src/games/pond/PondRenderer.tsx
 
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState } from 'react';
 import type { IGameRenderer } from '../../types';
 import type { PondGameState } from './types';
 import { AvatarStats } from './AvatarStats';
@@ -10,17 +10,28 @@ const CANVAS_SIZE = 400;
 const AVATAR_SIZE = 35;
 const AVATAR_HALF_SIZE = AVATAR_SIZE / 2;
 const MISSILE_RADIUS = 5;
+const PARTICLE_MAX_AGE = 5; // Number of frames a particle will last
 
 const POND_COLOURS = ['#ff8b00', '#c90015', '#166c0b', '#223068'];
 
 const toCanvas = (val: number) => (val / 100) * (CANVAS_SIZE - AVATAR_SIZE) + AVATAR_HALF_SIZE;
 const toCanvasNoMargin = (val: number) => (val / 100) * CANVAS_SIZE;
 
+interface Particle {
+  x: number;
+  y: number;
+  color: string;
+  age: number;
+}
+
 export const PondRenderer: IGameRenderer = ({ gameState }) => {
   const state = gameState as PondGameState;
+  const [spritesLoaded, setSpritesLoaded] = useState(false);
   
   const displayRef = useRef<HTMLCanvasElement>(null);
   const scratchRef = useRef<HTMLCanvasElement>(null);
+  const particlesRef = useRef<Particle[]>([]);
+
   const sprites = useMemo(() => {
       const img = new Image();
       img.src = '/assets/pond/sprites.png';
@@ -28,17 +39,31 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
   }, []);
 
   useEffect(() => {
-    if (!state || !sprites.complete || sprites.naturalHeight === 0) return;
+    if (sprites.complete) {
+      setSpritesLoaded(true);
+    } else {
+      sprites.onload = () => {
+        setSpritesLoaded(true);
+      };
+    }
+  }, [sprites]);
+
+  useEffect(() => {
+    if (!state || !spritesLoaded) return;
+    if (state.isReset) {
+      particlesRef.current = [];
+    }
 
     const displayCtx = displayRef.current?.getContext('2d');
     const scratchCtx = scratchRef.current?.getContext('2d');
 
     if (!displayCtx || !scratchCtx) return;
 
-    scratchCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    // Step 1: Clear the canvas completely with an opaque color.
     scratchCtx.fillStyle = '#527dbf';
     scratchCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
+    // Step 2: Draw avatars
     const sortedAvatars = [...state.avatars].sort((a, b) => (a.dead ? -1 : 1) - (b.dead ? -1 : 1));
     for (const avatar of sortedAvatars) {
         const x = toCanvas(avatar.x);
@@ -83,6 +108,24 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
         scratchCtx.restore();
     }
     
+    // Step 3: Update and draw missile trails (particles)
+    const newParticles: Particle[] = [];
+    for (const particle of particlesRef.current) {
+        particle.age++;
+        if (particle.age <= PARTICLE_MAX_AGE) {
+            newParticles.push(particle);
+            scratchCtx.save();
+            scratchCtx.globalAlpha = Math.pow(1 - (particle.age / PARTICLE_MAX_AGE), 2);
+            scratchCtx.fillStyle = particle.color;
+            scratchCtx.beginPath();
+            scratchCtx.arc(particle.x, particle.y, MISSILE_RADIUS * (1 - (particle.age / PARTICLE_MAX_AGE)), 0, 2 * Math.PI);
+            scratchCtx.fill();
+            scratchCtx.restore();
+        }
+    }
+    particlesRef.current = newParticles;
+
+    // Step 4: Draw missile shadows and spawn new particles for missile heads
     for (const missile of state.missiles) {
         const x = toCanvas(missile.x);
         const y = toCanvas(100 - missile.y);
@@ -90,17 +133,17 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
         const owner = state.avatars.find(a => a.id === missile.ownerId);
         const color = owner ? POND_COLOURS[owner.visualizationIndex % POND_COLOURS.length] : '#000';
 
+        // Draw shadow (no trail)
         scratchCtx.beginPath();
         scratchCtx.arc(x, shadowY, Math.max(0, 1 - missile.parabola / 10) * MISSILE_RADIUS, 0, 2 * Math.PI);
         scratchCtx.fillStyle = `rgba(0, 0, 0, 0.2)`;
         scratchCtx.fill();
 
-        scratchCtx.beginPath();
-        scratchCtx.arc(x, y, MISSILE_RADIUS, 0, 2 * Math.PI);
-        scratchCtx.fillStyle = color;
-        scratchCtx.fill();
+        // Spawn a new particle for the missile head
+        particlesRef.current.push({ x, y, color, age: 0 });
     }
     
+    // Step 5: Draw events
     for (const event of state.events) {
         if (event.type === 'BOOM') {
             const x = toCanvasNoMargin(event.x);
@@ -131,19 +174,13 @@ export const PondRenderer: IGameRenderer = ({ gameState }) => {
                 scratchCtx.fillStyle = gradient;
                 scratchCtx.fill();
             }
-        } else if (event.type === 'CRASH') {
-            const x = toCanvasNoMargin(event.x);
-            const y = toCanvasNoMargin(100 - event.y);
-            scratchCtx.beginPath();
-            scratchCtx.arc(x, y, AVATAR_HALF_SIZE / 2, 0, 2 * Math.PI);
-            scratchCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            scratchCtx.fill();
         }
     }
 
+    // Step 6: Final blit to display canvas
     displayCtx.drawImage(scratchRef.current!, 0, 0);
 
-  }, [state, sprites.complete]);
+  }, [state, spritesLoaded, sprites]);
 
 
   return (

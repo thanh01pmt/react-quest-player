@@ -12,6 +12,7 @@ const COLLISION_RADIUS = 5;
 const AVATAR_SPEED_FACTOR = 1;
 const ACCELERATION = 5;
 const COLLISION_DAMAGE = 3;
+const RELOAD_TIME_MS = 500; // Cooldown period for the cannon in milliseconds
 
 // Internal type for missile simulation
 interface Missile {
@@ -30,11 +31,19 @@ class Avatar {
   state: AvatarState;
   interpreter: Interpreter | null = null;
   code: string;
+  lastFiredTime = 0;
+  private readonly startX: number;
+  private readonly startY: number;
+  private readonly startDamage: number;
 
   constructor(name: string, startX: number, startY: number, damage: number, code: string, index: number) {
     this.id = `${name}-${index}`;
     this.name = name;
     this.code = code;
+    this.startX = startX;
+    this.startY = startY;
+    this.startDamage = damage;
+
     this.state = {
       id: this.id,
       name: this.name,
@@ -45,18 +54,22 @@ class Avatar {
       desiredSpeed: 0,
       heading: this.pointsToAngle(startX, startY, 50, 50),
       facing: this.pointsToAngle(startX, startY, 50, 50),
-      dead: false,
+      dead: damage >= 100,
       visualizationIndex: index,
     };
-    this.reset();
   }
 
   reset() {
-    this.state.damage = 0;
-    this.state.dead = false;
+    this.state.x = this.startX;
+    this.state.y = this.startY;
+    this.state.damage = this.startDamage;
+    this.state.dead = this.startDamage >= 100;
     this.state.speed = 0;
     this.state.desiredSpeed = 0;
+    this.state.heading = this.pointsToAngle(this.startX, this.startY, 50, 50);
+    this.state.facing = this.state.heading;
     this.interpreter = null;
+    this.lastFiredTime = 0;
   }
 
   addDamage(damage: number): boolean {
@@ -97,25 +110,32 @@ export class PondEngine implements IGameEngine {
     });
   }
 
+  public reset(): void {
+    this.ticks = 0;
+    this.missiles = [];
+    this.events = [];
+    for (const avatar of this.avatars) {
+        avatar.reset();
+    }
+  }
+
   getInitialState(): PondGameState {
-    const initialState = {
+    const initialState: PondGameState = {
       avatars: this.avatars.map(a => ({...a.state})),
       missiles: [],
       events: [],
       isFinished: false,
       ticks: 0,
       rank: [],
+      isReset: true,
     };
     return initialState;
   }
 
   execute(userCode: string): void {
-    this.ticks = 0;
-    this.missiles = [];
-    this.events = [];
+    this.reset();
     
     this.avatars.forEach(avatar => {
-      avatar.reset();
       const codeToRun = avatar.state.visualizationIndex === 0 ? userCode : avatar.code;
       if (!codeToRun) return;
       try {
@@ -299,6 +319,11 @@ export class PondEngine implements IGameEngine {
     const toDegrees = (rad: number) => rad * 180 / Math.PI;
 
     const cannon = (degree: number, range: number) => {
+        const now = Date.now();
+        if (now - currentAvatar.lastFiredTime < RELOAD_TIME_MS) {
+            return;
+        }
+        currentAvatar.lastFiredTime = now;
         const startLoc = { x: currentAvatar.state.x, y: currentAvatar.state.y };
         degree = (degree + 360) % 360;
         currentAvatar.state.facing = degree;
@@ -338,11 +363,16 @@ export class PondEngine implements IGameEngine {
     interpreter.setProperty(globalObject, 'scan', wrap(scan));
 
     const swim = (degree: number, speed = 50) => {
-        degree = (degree + 360) % 360;
-        if (currentAvatar.state.speed <= 50) {
-            currentAvatar.state.heading = degree;
+        const desiredDegree = (degree + 360) % 360;
+        if (currentAvatar.state.heading !== desiredDegree) {
+            if (currentAvatar.state.speed > 50) {
+                // High-speed turn penalty: stop the avatar.
+                currentAvatar.state.desiredSpeed = 0;
+            } else {
+                currentAvatar.state.heading = desiredDegree;
+            }
         }
-        currentAvatar.state.facing = degree; // Sync facing with swim direction
+        currentAvatar.state.facing = desiredDegree; // Always update facing direction
         currentAvatar.state.desiredSpeed = Math.max(0, Math.min(speed, 100));
     };
     interpreter.setProperty(globalObject, 'swim', wrap(swim));

@@ -41,4 +41,5 @@ export interface PondGameState extends GameState {
   isFinished: boolean;
   ticks: number;
   rank: string[]; // Array of avatar IDs, from winner to loser
+  isReset?: boolean;
 }
