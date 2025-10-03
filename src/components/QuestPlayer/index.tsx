@@ -6,7 +6,7 @@ import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
 import { transform } from '@babel/standalone';
-import type { Quest, GameState } from '../../types';
+import type { Quest, GameState, ExecutionMode } from '../../types';
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
@@ -23,7 +23,6 @@ import { getFailureMessage, processToolbox, createBlocklyTheme } from './utils';
 import { useQuestLoader } from './hooks/useQuestLoader';
 import { useEditorManager } from './hooks/useEditorManager';
 import { useGameLoop } from './hooks/useGameLoop';
-import type { ExecutionMode } from '../../types';
 import type { PondGameState } from '../../games/pond/types';
 import '../../App.css';
 import './QuestPlayer.css';
@@ -43,9 +42,9 @@ export const QuestPlayer: React.FC = () => {
   const [importError, setImportError] = useState<string>('');
   const [dialogState, setDialogState] = useState<DialogState>({ isOpen: false, title: '', message: '' });
   const [blockCount, setBlockCount] = useState(0);
-  const [blocklyKey, setBlocklyKey] = useState(0);
   const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('run');
 
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const rendererRef = useRef<TurtleRendererHandle>(null);
@@ -67,7 +66,7 @@ export const QuestPlayer: React.FC = () => {
     }
   }, [t, aceCode, currentEditor]);
   
-  const { currentGameState, playerStatus, runGame, resetGame } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound, setHighlightedBlockId);
+  const { currentGameState, playerStatus, runGame, resetGame, pauseGame, resumeGame, stepForward } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound, setHighlightedBlockId);
 
   useEffect(() => {
     if (questLoaderError) setImportError(questLoaderError);
@@ -107,6 +106,7 @@ export const QuestPlayer: React.FC = () => {
   const blocklyTheme = useMemo(() => createBlocklyTheme(colorScheme === 'dark'), [colorScheme]);
 
   const handleRun = (mode: ExecutionMode) => {
+    setExecutionMode(mode);
     let userCode = '';
     if (currentEditor === 'monaco') {
       try {
@@ -147,9 +147,26 @@ export const QuestPlayer: React.FC = () => {
               <div>
                 {questData && (
                   <>
-                    <button className="primaryButton" onClick={() => handleRun('run')}>Run Program</button>
-                    <button className="primaryButton" onClick={() => handleRun('debug')}>Debug Program</button>
-                    <button className="primaryButton" onClick={resetGame}>Reset</button>
+                    {playerStatus === 'idle' || playerStatus === 'finished' ? (
+                        <>
+                            <button className="primaryButton" onClick={() => handleRun('run')}>Run Program</button>
+                            <button className="primaryButton" onClick={() => handleRun('debug')}>Debug Program</button>
+                        </>
+                    ) : null}
+
+                    {playerStatus === 'running' && executionMode === 'debug' && (
+                        <button className="primaryButton" onClick={pauseGame}>Pause</button>
+                    )}
+                    
+                    {playerStatus === 'paused' && (
+                        <>
+                            <button className="primaryButton" onClick={resumeGame}>Resume</button>
+                            <button className="primaryButton" onClick={stepForward}>Step Forward</button>
+                        </>
+                    )}
+
+                    {playerStatus !== 'idle' && <button className="primaryButton" onClick={resetGame}>Reset</button>}
+                    
                     {questData.gameType === 'pond' && (
                         <button className="primaryButton" onClick={() => setIsDocsOpen(true)} title={t('Pond.docsTooltip')}>
                             {t('Pond.documentation')}
@@ -200,7 +217,7 @@ export const QuestPlayer: React.FC = () => {
             ) : (
               processedToolbox && questData?.blocklyConfig && (
                 <BlocklyWorkspace
-                  key={`${questData.id}-${blocklyKey}`}
+                  key={`${questData.id}`}
                   className="fill-container"
                   toolboxConfiguration={processedToolbox}
                   initialXml={questData.blocklyConfig.startBlocks}
