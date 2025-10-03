@@ -149,15 +149,21 @@ export interface GameState {
   // Common properties can be added here if any.
 }
 
+export type StepResult = {
+    done: boolean;
+    state: GameState;
+    highlightedBlockId?: string | null;
+} | null;
+
 /**
  * Defines the contract for an INSTANCE of a GameEngine class.
  */
 export interface IGameEngine {
   getInitialState(): GameState;
   
-  execute(userCode: string): GameState[] | void;
+  execute(userCode: string, onHighlight: (blockId: string) => void): GameState[] | void;
 
-  step?(): { done: boolean, state: GameState } | null;
+  step?(): StepResult;
 
   checkWinCondition(finalState: GameState, solutionConfig: SolutionConfig): boolean;
 }
@@ -176,3 +182,5 @@ export type IGameRenderer = React.FC<{
   gameConfig: GameConfig;
   [key: string]: any; // Allow other props to be passed through (e.g., ref, solutionCommands)
 }>;
+
+export type ExecutionMode = 'run' | 'debug';

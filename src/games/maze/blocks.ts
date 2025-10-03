@@ -100,24 +100,24 @@ export function init() {
   ]);
 
   javascriptGenerator.forBlock['maze_moveForward'] = function(block: Blockly.Block) {
-    return `moveForward('block_id_${block.id}');\n`;
+    return `highlightBlock('block_id_${block.id}');\nmoveForward();\n`;
   };
   javascriptGenerator.forBlock['maze_turn'] = function(block: Blockly.Block) {
     const dir = block.getFieldValue('DIR');
-    return `${dir}('block_id_${block.id}');\n`;
+    return `highlightBlock('block_id_${block.id}');\n${dir}();\n`;
   };
   javascriptGenerator.forBlock['maze_if'] = function(block: Blockly.Block) {
     const dir = block.getFieldValue('DIR');
-    const argument = `${dir}('block_id_${block.id}')`;
+    const argument = `${dir}()`;
     const branch = javascriptGenerator.statementToCode(block, 'DO');
-    return `if (${argument}) {\n${branch}}\n`;
+    return `highlightBlock('block_id_${block.id}');\nif (${argument}) {\n${branch}}\n`;
   };
   javascriptGenerator.forBlock['maze_ifElse'] = function(block: Blockly.Block) {
     const dir = block.getFieldValue('DIR');
-    const argument = `${dir}('block_id_${block.id}')`;
+    const argument = `${dir}()`;
     const branch0 = javascriptGenerator.statementToCode(block, 'DO');
     const branch1 = javascriptGenerator.statementToCode(block, 'ELSE');
-    return `if (${argument}) {\n${branch0}} else {\n${branch1}}\n`;
+    return `highlightBlock('block_id_${block.id}');\nif (${argument}) {\n${branch0}} else {\n${branch1}}\n`;
   };
   javascriptGenerator.forBlock['maze_forever'] = function(block: Blockly.Block) {
     let branch = javascriptGenerator.statementToCode(block, 'DO');
@@ -125,6 +125,6 @@ export function init() {
       branch = (javascriptGenerator as any).INFINITE_LOOP_TRAP.replace(/%1/g,
           `'block_id_${block.id}'`) + branch;
     }
-    return `while (notDone()) {\n${branch}}\n`;
+    return `highlightBlock('block_id_${block.id}');\nwhile (notDone()) {\n${branch}}\n`;
   };
 }

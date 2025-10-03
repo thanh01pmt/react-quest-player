@@ -22,7 +22,8 @@ import type { TurtleRendererHandle } from '../../games/turtle/TurtleRenderer';
 import { getFailureMessage, processToolbox, createBlocklyTheme } from './utils';
 import { useQuestLoader } from './hooks/useQuestLoader';
 import { useEditorManager } from './hooks/useEditorManager';
-import { useGameLoop } from './hooks/useGameLoop'; // Import hook
+import { useGameLoop } from './hooks/useGameLoop';
+import type { ExecutionMode } from '../../types';
 import type { PondGameState } from '../../games/pond/types';
 import '../../App.css';
 import './QuestPlayer.css';
@@ -44,6 +45,7 @@ export const QuestPlayer: React.FC = () => {
   const [blockCount, setBlockCount] = useState(0);
   const [blocklyKey, setBlocklyKey] = useState(0);
   const [isDocsOpen, setIsDocsOpen] = useState(false);
+  const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
 
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const rendererRef = useRef<TurtleRendererHandle>(null);
@@ -65,7 +67,7 @@ export const QuestPlayer: React.FC = () => {
     }
   }, [t, aceCode, currentEditor]);
   
-  const { currentGameState, playerStatus, runGame, resetGame } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound);
+  const { currentGameState, playerStatus, runGame, resetGame } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound, setHighlightedBlockId);
 
   useEffect(() => {
     if (questLoaderError) setImportError(questLoaderError);
@@ -98,9 +100,13 @@ export const QuestPlayer: React.FC = () => {
     }
   }, [currentGameState, questData?.gameType, playSound]);
 
+  useEffect(() => {
+    workspaceRef.current?.highlightBlock(highlightedBlockId);
+  }, [highlightedBlockId]);
+
   const blocklyTheme = useMemo(() => createBlocklyTheme(colorScheme === 'dark'), [colorScheme]);
 
-  const handleRun = () => {
+  const handleRun = (mode: ExecutionMode) => {
     let userCode = '';
     if (currentEditor === 'monaco') {
       try {
@@ -114,7 +120,7 @@ export const QuestPlayer: React.FC = () => {
     } else if (workspaceRef.current) {
       userCode = javascriptGenerator.workspaceToCode(workspaceRef.current);
     }
-    runGame(userCode);
+    runGame(userCode, mode);
   };
   
   const handleQuestLoad = (loadedQuest: Quest) => {
@@ -141,7 +147,8 @@ export const QuestPlayer: React.FC = () => {
               <div>
                 {questData && (
                   <>
-                    <button className="primaryButton" onClick={handleRun}>Run Program</button>
+                    <button className="primaryButton" onClick={() => handleRun('run')}>Run Program</button>
+                    <button className="primaryButton" onClick={() => handleRun('debug')}>Debug Program</button>
                     <button className="primaryButton" onClick={resetGame}>Reset</button>
                     {questData.gameType === 'pond' && (
                         <button className="primaryButton" onClick={() => setIsDocsOpen(true)} title={t('Pond.docsTooltip')}>

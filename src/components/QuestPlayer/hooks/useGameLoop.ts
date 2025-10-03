@@ -1,13 +1,14 @@
 // src/components/QuestPlayer/hooks/useGameLoop.ts
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-// import { useTranslation } from 'react-i18next';
-import type { IGameEngine, GameState, Quest } from '../../../types';
+import type { IGameEngine, GameState, Quest, StepResult } from '../../../types';
 import type { TurtleEngine } from '../../../games/turtle/TurtleEngine';
 import type { TurtleRendererHandle } from '../../../games/turtle/TurtleRenderer';
+import type { ExecutionMode } from '../../../types';
 
 const BATCH_FRAME_DELAY = 150;
 const STEP_FRAME_DELAY = 50;
+const DEBUG_FRAME_DELAY = 500; // Delay for debug mode
 
 type PlayerStatus = 'idle' | 'running' | 'finished';
 
@@ -22,8 +23,8 @@ export const useGameLoop = (
   rendererRef: React.RefObject<TurtleRendererHandle>,
   onGameEnd: (result: GameLoopResult) => void,
   playSound: (name: string, volume?: number) => void,
+  setHighlightedBlockId: (id: string | null) => void,
 ) => {
-//   const { t } = useTranslation();
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
   const [currentGameState, setCurrentGameState] = useState<GameState | null>(null);
   const [executionLog, setExecutionLog] = useState<GameState[] | null>(null);
@@ -31,6 +32,7 @@ export const useGameLoop = (
   const frameIndex = useRef(0);
   const animationFrameId = useRef<number | null>(null);
   const lastStepTime = useRef(0);
+  const executionModeRef = useRef<ExecutionMode>('run');
 
   useEffect(() => {
     if (engineRef.current) {
@@ -38,13 +40,22 @@ export const useGameLoop = (
     }
   }, [engineRef.current]);
 
-  const runGame = useCallback((userCode: string) => {
+  const runGame = useCallback((userCode: string, mode: ExecutionMode) => {
     const engine = engineRef.current;
     if (!engine || playerStatus === 'running') return;
 
+    setHighlightedBlockId(null);
+    executionModeRef.current = mode;
     frameIndex.current = 0;
     lastStepTime.current = 0;
-    const log = engine.execute(userCode);
+    
+    // Pass the highlight callback to the engine
+    const onHighlight = (blockId: string) => {
+        if (executionModeRef.current === 'debug') {
+            setHighlightedBlockId(blockId);
+        }
+    };
+    const log = engine.execute(userCode, onHighlight);
 
     if (Array.isArray(log)) {
       setExecutionLog(log);
@@ -54,14 +65,13 @@ export const useGameLoop = (
       setCurrentGameState(engine.getInitialState());
     }
     setPlayerStatus('running');
-  }, [engineRef, playerStatus]);
+  }, [engineRef, playerStatus, setHighlightedBlockId]);
 
   const resetGame = useCallback(() => {
     if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     const engine = engineRef.current;
     if (!engine) return;
 
-    // Hard-reset the internal state of the engine before getting the new initial state.
     if ('reset' in engine && typeof engine.reset === 'function') {
       engine.reset();
     }
@@ -70,7 +80,8 @@ export const useGameLoop = (
     setCurrentGameState(engine.getInitialState());
     setExecutionLog(null);
     setPlayerStatus('idle');
-  }, [engineRef]);
+    setHighlightedBlockId(null);
+  }, [engineRef, setHighlightedBlockId]);
 
   useEffect(() => {
     const animate = (timestamp: number) => {
@@ -102,19 +113,24 @@ export const useGameLoop = (
         const finalState = { ...finalEngineState, result: isSuccess ? 'success' : 'failure' };
         setCurrentGameState(finalState);
         setPlayerStatus('finished');
+        setHighlightedBlockId(null);
         onGameEnd({ isSuccess, finalState });
       };
 
       if (engine.step) {
-        if (timestamp - lastStepTime.current < STEP_FRAME_DELAY) {
+        const delay = executionModeRef.current === 'debug' ? DEBUG_FRAME_DELAY : STEP_FRAME_DELAY;
+        if (timestamp - lastStepTime.current < delay) {
           animationFrameId.current = requestAnimationFrame(animate);
           return;
         }
         lastStepTime.current = timestamp;
 
-        const result = engine.step();
+        const result: StepResult = engine.step();
         if (result) {
           setCurrentGameState(result.state);
+          if (executionModeRef.current === 'debug' && result.highlightedBlockId) {
+            setHighlightedBlockId(result.highlightedBlockId);
+          }
           if (result.done) {
             handleGameOver(result.state);
           } else {
@@ -122,7 +138,8 @@ export const useGameLoop = (
           }
         }
       } else if (executionLog) {
-        if (timestamp - lastStepTime.current < BATCH_FRAME_DELAY) {
+        const delay = executionModeRef.current === 'debug' ? DEBUG_FRAME_DELAY : BATCH_FRAME_DELAY;
+        if (timestamp - lastStepTime.current < delay) {
             animationFrameId.current = requestAnimationFrame(animate);
             return;
         }
@@ -145,7 +162,7 @@ export const useGameLoop = (
     return () => {
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [playerStatus, executionLog, questData, engineRef, rendererRef, onGameEnd, playSound]);
+  }, [playerStatus, executionLog, questData, engineRef, rendererRef, onGameEnd, playSound, setHighlightedBlockId]);
 
   return {
     currentGameState,

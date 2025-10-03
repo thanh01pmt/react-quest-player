@@ -30,7 +30,7 @@ export class MazeEngine implements IGameEngine {
     };
   }
 
-  execute(userCode: string): GameState[] {
+  execute(userCode: string, onHighlight: (blockId: string) => void): GameState[] {
     this.currentState = this.getInitialState();
     this.log = [this.getInitialState()];
 
@@ -43,6 +43,13 @@ export class MazeEngine implements IGameEngine {
       interpreter.setProperty(globalObject, 'isPathRight', wrapper(() => this.isPath(1)));
       interpreter.setProperty(globalObject, 'isPathLeft', wrapper(() => this.isPath(3)));
       interpreter.setProperty(globalObject, 'notDone', wrapper(this.notDone));
+
+      // Add API for highlighting blocks
+      const highlightWrapper = (id: string) => {
+        const realId = id ? id.replace('block_id_', '') : '';
+        onHighlight(realId);
+      };
+      interpreter.setProperty(globalObject, 'highlightBlock', interpreter.createNativeFunction(highlightWrapper));
     };
 
     const interpreter = new Interpreter(userCode, initApi);

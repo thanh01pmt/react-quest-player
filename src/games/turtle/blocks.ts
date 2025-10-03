@@ -168,49 +168,51 @@ export function init() {
     },
   ]);
 
+  const HIGHLIGHT_PREFIX = "highlightBlock('block_id_%1');\n";
+
   javascriptGenerator.forBlock['turtle_move'] = function(block: Blockly.Block) {
     const value = javascriptGenerator.valueToCode(block, 'VALUE', Order.NONE) || '0';
-    return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('DIR')}(${value});\n`;
   };
   javascriptGenerator.forBlock['turtle_move_internal'] = function(block: Blockly.Block) {
     const value = Number(block.getFieldValue('VALUE'));
-    return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('DIR')}(${value});\n`;
   };
   javascriptGenerator.forBlock['turtle_turn'] = function(block: Blockly.Block) {
     const value = javascriptGenerator.valueToCode(block, 'VALUE', Order.NONE) || '0';
-    return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('DIR')}(${value});\n`;
   };
   javascriptGenerator.forBlock['turtle_turn_internal'] = function(block: Blockly.Block) {
     const value = Number(block.getFieldValue('VALUE'));
-    return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('DIR')}(${value});\n`;
   };
   javascriptGenerator.forBlock['turtle_width'] = function(block: Blockly.Block) {
     const width = javascriptGenerator.valueToCode(block, 'WIDTH', Order.NONE) || '1';
-    return `penWidth(${width}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}penWidth(${width});\n`;
   };
   javascriptGenerator.forBlock['turtle_pen'] = function(block: Blockly.Block) {
-    return `${block.getFieldValue('PEN')}('block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('PEN')}();\n`;
   };
   javascriptGenerator.forBlock['turtle_colour'] = function(block: Blockly.Block) {
     const colour = javascriptGenerator.valueToCode(block, 'COLOUR', Order.NONE) || '\'#000000\'';
-    return `penColour(${colour}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}penColour(${colour});\n`;
   };
   javascriptGenerator.forBlock['turtle_colour_internal'] = function(block: Blockly.Block) {
     const colour = javascriptGenerator.quote_(block.getFieldValue('COLOUR'));
-    return `penColour(${colour}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}penColour(${colour});\n`;
   };
   javascriptGenerator.forBlock['turtle_visibility'] = function(block: Blockly.Block) {
-    return `${block.getFieldValue('VISIBILITY')}('block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('VISIBILITY')}();\n`;
   };
   javascriptGenerator.forBlock['turtle_print'] = function(block: Blockly.Block) {
     const text = String(javascriptGenerator.valueToCode(block, 'TEXT', Order.NONE) || '\'\'');
-    return `print(${text}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}print(${text});\n`;
   };
   javascriptGenerator.forBlock['turtle_font'] = function(block: Blockly.Block) {
     const font = javascriptGenerator.quote_(block.getFieldValue('FONT'));
     const fontSize = Number(block.getFieldValue('FONTSIZE'));
     const fontStyle = javascriptGenerator.quote_(block.getFieldValue('FONTSTYLE'));
-    return `font(${font}, ${fontSize}, ${fontStyle}, 'block_id_${block.id}');\n`;
+    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}font(${font}, ${fontSize}, ${fontStyle});\n`;
   };
   javascriptGenerator.forBlock['turtle_repeat_internal'] = (javascriptGenerator as any)['forBlock']['controls_repeat'];
 }
