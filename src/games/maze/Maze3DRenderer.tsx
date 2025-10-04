@@ -14,7 +14,6 @@ interface IGameRenderer extends IGameRendererBase {
 }
 
 const TILE_SIZE = 2;
-const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
 
 // --- Helper Components ---
 
@@ -31,32 +30,45 @@ const FinishMarker: React.FC<{ position: [number, number, number] }> = ({ positi
 
 const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotRef: React.RefObject<THREE.Group> }> = ({ gameConfig, gameState, robotRef }) => {
   const robotPosition = useMemo(() => {
+    // SỬA LỖI: Sử dụng công thức tính toán độ cao Y chính xác.
+    // Độ cao của mặt sàn = (y của khối bên dưới) * TILE_SIZE + nửa chiều cao khối
+    const groundY = (gameState.player.y - 1) * TILE_SIZE;
+    const surfaceY = groundY + TILE_SIZE / 2;
+
     return new THREE.Vector3(
         gameState.player.x * TILE_SIZE,
-        TILE_SIZE,
-        gameState.player.y * TILE_SIZE
+        surfaceY,
+        gameState.player.z * TILE_SIZE
     );
-  }, [gameState.player.x, gameState.player.y]);
+  }, [gameState.player.x, gameState.player.y, gameState.player.z]);
 
 
   return (
     <group>
-      {/* Render Map Tiles from GLB models */}
-      {gameConfig.map.map((row, y) =>
-        row.map((cell, x) => {
-          let modelKey = 'ground.normal'; 
-          if (cell === SquareType.WALL) {
-            modelKey = 'wall.brick01'; 
-          }
-          
-          return <Block key={`${x}-${y}`} modelKey={modelKey} position={[x * TILE_SIZE, 0, y * TILE_SIZE]} />;
-        })
-      )}
+      {/* Render các khối từ mảng gameConfig.blocks */}
+      {gameConfig.blocks.map((block, index) => (
+        <Block 
+          key={index} 
+          modelKey={block.modelKey} 
+          position={[
+            block.position.x * TILE_SIZE, 
+            block.position.y * TILE_SIZE, 
+            block.position.z * TILE_SIZE
+          ]} 
+        />
+      ))}
 
-      {/* Render Finish Marker */}
-      <FinishMarker position={[gameConfig.finish.x * TILE_SIZE, TILE_SIZE, gameConfig.finish.y * TILE_SIZE]} />
+      {/* Render Finish Marker tại vị trí 3D */}
+      <FinishMarker 
+        position={[
+          gameConfig.finish.x * TILE_SIZE, 
+          // SỬA LỖI: Tính toán độ cao Y cho marker tương tự robot
+          (gameConfig.finish.y - 1) * TILE_SIZE + TILE_SIZE / 2,
+          gameConfig.finish.z * TILE_SIZE
+        ]} 
+      />
       
-      {/* SỬA LỖI: Xóa group bọc ngoài và truyền ref trực tiếp vào RobotCharacter */}
+      {/* Robot được render tại vị trí 3D đã tính toán */}
       <RobotCharacter 
         ref={robotRef}
         position={robotPosition} 

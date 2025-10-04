@@ -34,30 +34,18 @@ export interface ToolboxJSON {
 
 // --- Main Config Interfaces ---
 
-/**
- * Defines the structure for the Blockly workspace configuration within a quest.
- */
 export interface BlocklyConfig {
   toolbox: ToolboxJSON;
   maxBlocks?: number;
   startBlocks?: string;
 }
 
-/**
- * A union type representing all possible game-specific configurations.
- * Each game will have its own config interface.
- */
-export type GameConfig = MazeConfig | TurtleConfig | PondConfig; // BirdConfig and MusicConfig removed for now
+export type GameConfig = MazeConfig | TurtleConfig | PondConfig;
 
-// Configuration for Monaco editor
 export interface MonacoConfig {
   initialCode: string;
 }
 
-/**
- * Defines the structure for a single quest file.
- * This is the main data structure loaded by the QuestPlayer.
- */
 export interface Quest {
   id: string;
   gameType: 'maze' | 'bird' | 'turtle' | 'movie' | 'music' | 'pond' | 'puzzle';
@@ -65,12 +53,12 @@ export interface Quest {
   titleKey: string;
   descriptionKey: string;
   
-  supportedEditors?: ('blockly' | 'monaco')[]; // NEW: Specify editor type
+  supportedEditors?: ('blockly' | 'monaco')[];
 
   translations?: Record<string, Record<string, string>>;
 
-  blocklyConfig?: BlocklyConfig; // Now optional
-  monacoConfig?: MonacoConfig; // NEW: Monaco-specific config
+  blocklyConfig?: BlocklyConfig;
+  monacoConfig?: MonacoConfig;
   
   gameConfig: GameConfig;
   solution: SolutionConfig;
@@ -80,45 +68,49 @@ export interface Quest {
 
 export type ExecutionMode = 'run' | 'debug';
 
-// NEW: Define camera modes for 3D renderers
 export type CameraMode = 'Follow' | 'TopDown' | 'Free';
 
 // =================================================================
 // ==                 GAME-SPECIFIC CONFIGURATIONS                ==
 // =================================================================
 
-interface PlayerStart {
+export interface Position3D {
   x: number;
   y: number;
+  z: number;
+}
+
+// SỬA LỖI: Thêm từ khóa 'export'
+export interface Block {
+  modelKey: string;
+  position: Position3D;
 }
 
 export interface MazeConfig {
   type: 'maze';
-  map: number[][];
+  blocks: Block[]; // Thay thế 'map' bằng 'blocks'
   player: {
-    start: PlayerStart & { direction: 0 | 1 | 2 | 3 };
+    start: Position3D & { direction: 0 | 1 | 2 | 3 }; // Thêm 'y'
   };
-  finish: PlayerStart;
+  finish: Position3D; // finish giờ là một vị trí 3D
   renderer?: '2d' | '3d';
 }
 
 export interface TurtleConfig {
   type: 'turtle';
   player: {
-    start: PlayerStart & { direction: number; penDown: boolean };
+    start: { x: number, y: number } & { direction: number; penDown: boolean };
   };
 }
 
-// NEW: Configuration for a single avatar in Pond
 export interface PondAvatarConfig {
   name: string;
   isPlayer: boolean;
-  start: PlayerStart;
+  start: { x: number, y: number };
   damage: number;
   code?: string;
 }
 
-// UPDATED: Placeholder for Pond game config
 export interface PondConfig {
   type: 'pond';
   avatars: PondAvatarConfig[];
@@ -133,13 +125,9 @@ export interface MusicConfig { /* To be defined */ }
 // ==                   SOLUTION CONFIGURATIONS                   ==
 // =================================================================
 
-/**
- * Defines how to check for a successful solution.
- */
 export interface SolutionConfig {
   type: 'reach_target' | 'match_drawing' | 'match_music' | 'survive_battle' | 'destroy_target';
   pixelTolerance?: number;
-  // Optional fields for different solution types
   solutionBlocks?: string;
   solutionScript?: string;
 }
@@ -148,9 +136,6 @@ export interface SolutionConfig {
 // ==                  ENGINE & RENDERER INTERFACES               ==
 // =================================================================
 
-/**
- * A generic type for the game state. Each game will extend this.
- */
 export interface GameState {
   // Common properties can be added here if any.
 }
@@ -161,9 +146,6 @@ export type StepResult = {
     highlightedBlockId?: string | null;
 } | null;
 
-/**
- * Defines the contract for an INSTANCE of a GameEngine class.
- */
 export interface IGameEngine {
   reset?(): void;
   getInitialState(): GameState;
@@ -175,17 +157,10 @@ export interface IGameEngine {
   checkWinCondition(finalState: GameState, solutionConfig: SolutionConfig): boolean;
 }
 
-/**
- * Defines the contract for the CONSTRUCTOR of a GameEngine class.
- */
 export type GameEngineConstructor = new (gameConfig: GameConfig) => IGameEngine;
 
-/**
- * Defines the contract that every GameRenderer component must follow.
- * It's a React Functional Component.
- */
 export type IGameRenderer = React.FC<{
   gameState: GameState;
   gameConfig: GameConfig;
-  [key: string]: any; // Allow other props to be passed through (e.g., ref, solutionCommands)
+  [key: string]: any;
 }>;

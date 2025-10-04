@@ -48,7 +48,7 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetRef, mode }) => {
         gsap.to(camera.position, {
           duration: TRANSITION_DURATION,
           x: robotPosition.x,
-          y: robotPosition.y + 20,
+          y: robotPosition.y + 26,
           z: robotPosition.z + 0.01,
           ease: 'power2.inOut',
         });

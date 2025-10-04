@@ -22,20 +22,26 @@ const monacoConfigSchema = z.object({
 
 // --- Game-specific Config Schemas ---
 
+const positionSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  z: z.number(),
+});
+
+const blockSchema = z.object({
+  modelKey: z.string(),
+  position: positionSchema,
+});
+
 const mazeConfigSchema = z.object({
   type: z.literal('maze'),
-  map: z.array(z.array(z.number())),
+  blocks: z.array(blockSchema), // Thay thế 'map' bằng 'blocks'
   player: z.object({
-    start: z.object({
-      x: z.number(),
-      y: z.number(),
+    start: positionSchema.extend({ // Thêm 'y' và 'direction'
       direction: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
     }),
   }),
-  finish: z.object({
-    x: z.number(),
-    y: z.number(),
-  }),
+  finish: positionSchema, // finish giờ là một vị trí 3D
   renderer: z.enum(['2d', '3d']).optional(),
 });
 
