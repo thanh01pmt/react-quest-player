@@ -7,7 +7,7 @@ import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
 import { transform } from '@babel/standalone';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import type { Quest, GameState, ExecutionMode } from '../../types';
+import type { Quest, GameState, ExecutionMode, CameraMode } from '../../types';
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
@@ -61,6 +61,7 @@ export const QuestPlayer: React.FC = () => {
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [colorSchemeMode, setColorSchemeMode] = useState<ColorSchemeMode>('auto');
   const [toolboxMode, setToolboxMode] = useState<ToolboxMode>('default');
+  const [cameraMode, setCameraMode] = useState<CameraMode>('Follow');
 
   // Execution states
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('run');
@@ -164,6 +165,8 @@ export const QuestPlayer: React.FC = () => {
     ? processToolbox(questData.blocklyConfig.toolbox, t) 
     : undefined;
 
+  const is3DRenderer = questData?.gameConfig.type === 'maze' && questData.gameConfig.renderer === '3d';
+
   const workspaceConfiguration = useMemo(() => ({
     theme: blocklyTheme,
     renderer: renderer,
@@ -222,9 +225,25 @@ export const QuestPlayer: React.FC = () => {
                         </>
                         )}
                     </div>
-                    {currentEditor === 'blockly' && maxBlocks && isFinite(maxBlocks) && (
-                        <div style={{ fontFamily: 'monospace' }}>Blocks: {blockCount} / {maxBlocks}</div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        {is3DRenderer && (
+                            <div>
+                                <label htmlFor="camera-mode-select" style={{ marginRight: '5px', fontSize: '14px' }}>Camera:</label>
+                                <select 
+                                    id="camera-mode-select"
+                                    value={cameraMode} 
+                                    onChange={(e) => setCameraMode(e.target.value as CameraMode)}
+                                >
+                                    <option value="Follow">Follow</option>
+                                    <option value="TopDown">Top Down</option>
+                                    <option value="Free">Free</option>
+                                </select>
+                            </div>
+                        )}
+                        {currentEditor === 'blockly' && maxBlocks && isFinite(maxBlocks) && (
+                            <div style={{ fontFamily: 'monospace' }}>Blocks: {blockCount} / {maxBlocks}</div>
+                        )}
+                    </div>
                     </div>
                     {questData && GameRenderer ? (
                     <Visualization
@@ -233,6 +252,7 @@ export const QuestPlayer: React.FC = () => {
                         gameConfig={questData.gameConfig}
                         ref={questData.gameType === 'turtle' ? rendererRef : undefined}
                         solutionCommands={solutionCommands}
+                        cameraMode={cameraMode}
                     />
                     ) : (
                     <div className="emptyState"><h2>Load quest to play</h2></div>

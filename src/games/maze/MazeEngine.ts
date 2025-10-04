@@ -24,7 +24,7 @@ export class MazeEngine implements IGameEngine {
 
   getInitialState(): MazeGameState {
     return {
-      player: { ...this.start },
+      player: { ...this.start, pose: 'Idle' },
       result: 'unset',
       isFinished: false,
     };
@@ -87,20 +87,33 @@ export class MazeEngine implements IGameEngine {
   private moveForward(): void {
     if (!this.isPath(0)) throw new Error('Hit a wall');
     const { player } = this.currentState;
+    
+    // Set walking animation before moving
+    player.pose = 'Walking';
+    this.logState();
+    
     if (player.direction === 0) player.y--;
     else if (player.direction === 1) player.x++;
     else if (player.direction === 2) player.y++;
     else if (player.direction === 3) player.x--;
+
+    // Log the new position while still "walking"
+    this.logState();
+
+    // End with idle animation
+    player.pose = 'Idle';
     this.logState();
   }
 
   private turnLeft(): void {
     this.currentState.player.direction = this.constrainDirection(this.currentState.player.direction - 1);
+    this.currentState.player.pose = 'Idle'; // Ensure idle pose on turn
     this.logState();
   }
 
   private turnRight(): void {
     this.currentState.player.direction = this.constrainDirection(this.currentState.player.direction + 1);
+    this.currentState.player.pose = 'Idle'; // Ensure idle pose on turn
     this.logState();
   }
 
@@ -125,15 +138,11 @@ export class MazeEngine implements IGameEngine {
     this.log.push(JSON.parse(JSON.stringify(this.currentState)));
   }
   
-  // ADDED: Helper to append victory animation frames
   private logVictoryAnimation(): void {
-    this.currentState.player.pose = 'victory1';
+    this.currentState.player.pose = 'Victory';
     this.logState();
-    this.currentState.player.pose = 'victory2';
-    this.logState();
-    this.currentState.player.pose = 'victory1';
-    this.logState();
-    delete this.currentState.player.pose; // Return to normal pose
+    this.logState(); // Hold the pose for a bit
+    this.currentState.player.pose = 'Idle';
     this.logState();
   }
 

@@ -80,6 +80,9 @@ export interface Quest {
 
 export type ExecutionMode = 'run' | 'debug';
 
+// NEW: Define camera modes for 3D renderers
+export type CameraMode = 'Follow' | 'TopDown' | 'Free';
+
 // =================================================================
 // ==                 GAME-SPECIFIC CONFIGURATIONS                ==
 // =================================================================
