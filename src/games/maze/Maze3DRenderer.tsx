@@ -19,10 +19,10 @@ const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
 // --- Helper Components ---
 
 const FinishMarker: React.FC<{ position: [number, number, number] }> = ({ position }) => {
-    const height = TILE_SIZE / 4; // Tỷ lệ với TILE_SIZE
+    const height = 0.5;
     const radius = TILE_SIZE / 4;
     return (
-        <mesh position={[position[0], position[1] + height, position[2]]}>
+        <mesh position={[position[0], position[1] + height / 2, position[2]]}>
             <cylinderGeometry args={[radius, radius, height, 32]} />
             <meshStandardMaterial color="#00ffff" emissive="#00ffff" emissiveIntensity={2} />
         </mesh>
@@ -33,14 +33,13 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
   const robotPosition = useMemo(() => {
     return new THREE.Vector3(
         gameState.player.x * TILE_SIZE,
-        0,
+        TILE_SIZE,
         gameState.player.y * TILE_SIZE
     );
   }, [gameState.player.x, gameState.player.y]);
 
 
   return (
-    // SỬA LỖI: Loại bỏ group có mapCenterOffset
     <group>
       {/* Render Map Tiles from GLB models */}
       {gameConfig.map.map((row, y) =>
@@ -55,16 +54,15 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
       )}
 
       {/* Render Finish Marker */}
-      <FinishMarker position={[gameConfig.finish.x * TILE_SIZE, 0, gameConfig.finish.y * TILE_SIZE]} />
+      <FinishMarker position={[gameConfig.finish.x * TILE_SIZE, TILE_SIZE, gameConfig.finish.y * TILE_SIZE]} />
       
-      {/* Render Player Robot */}
-      <group ref={robotRef}>
-         <RobotCharacter 
-            position={robotPosition} 
-            direction={gameState.player.direction}
-            animationName={gameState.player.pose || 'Idle'}
-          />
-      </group>
+      {/* SỬA LỖI: Xóa group bọc ngoài và truyền ref trực tiếp vào RobotCharacter */}
+      <RobotCharacter 
+        ref={robotRef}
+        position={robotPosition} 
+        direction={gameState.player.direction}
+        animationName={gameState.player.pose || 'Idle'}
+      />
     </group>
   );
 };
@@ -80,7 +78,7 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
 
     return (
       <Canvas
-        camera={{ position: [10, 20, 25], fov: 50 }} // Điều chỉnh camera ban đầu để nhìn vào gốc tọa độ
+        camera={{ position: [10, 20, 25], fov: 50 }}
         shadows
         style={{ width: '100%', height: '100%' }}
       >
