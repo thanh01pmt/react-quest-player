@@ -6,6 +6,7 @@ import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
 import { transform } from '@babel/standalone';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import type { Quest, GameState, ExecutionMode } from '../../types';
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
@@ -184,121 +185,127 @@ export const QuestPlayer: React.FC = () => {
       </Dialog>
       <DocumentationPanel isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} />
       <BackgroundMusic src={questData?.backgroundMusic} play={playerStatus === 'running' && soundsEnabled} />
-      <div className="appContainer">
-        <div className="visualizationColumn">
-          <div className="main-content-wrapper">
-            <div className="controlsArea">
-              <div>
-                {questData && (
-                  <>
-                    {playerStatus === 'idle' || playerStatus === 'finished' ? (
+      
+      <PanelGroup direction="horizontal" className="appContainer" autoSaveId="quest-player-panels">
+        <Panel defaultSize={50} minSize={20}>
+            <div className="visualizationColumn">
+                <div className="main-content-wrapper">
+                    <div className="controlsArea">
+                    <div>
+                        {questData && (
                         <>
-                            <button className="primaryButton" onClick={() => handleRun('run')}>Run Program</button>
-                            <button className="primaryButton" onClick={() => handleRun('debug')}>Debug Program</button>
-                        </>
-                    ) : null}
+                            {playerStatus === 'idle' || playerStatus === 'finished' ? (
+                                <>
+                                    <button className="primaryButton" onClick={() => handleRun('run')}>Run Program</button>
+                                    <button className="primaryButton" onClick={() => handleRun('debug')}>Debug Program</button>
+                                </>
+                            ) : null}
 
-                    {playerStatus === 'running' && executionMode === 'debug' && (
-                        <button className="primaryButton" onClick={pauseGame}>Pause</button>
-                    )}
-                    
-                    {playerStatus === 'paused' && (
-                        <>
-                            <button className="primaryButton" onClick={resumeGame}>Resume</button>
-                            <button className="primaryButton" onClick={stepForward}>Step Forward</button>
-                        </>
-                    )}
+                            {playerStatus === 'running' && executionMode === 'debug' && (
+                                <button className="primaryButton" onClick={pauseGame}>Pause</button>
+                            )}
+                            
+                            {playerStatus === 'paused' && (
+                                <>
+                                    <button className="primaryButton" onClick={resumeGame}>Resume</button>
+                                    <button className="primaryButton" onClick={stepForward}>Step Forward</button>
+                                </>
+                            )}
 
-                    {playerStatus !== 'idle' && <button className="primaryButton" onClick={resetGame}>Reset</button>}
-                    
-                    {questData.gameType === 'pond' && (
-                        <button className="primaryButton" onClick={() => setIsDocsOpen(true)} title={t('Pond.docsTooltip')}>
-                            {t('Pond.documentation')}
-                        </button>
+                            {playerStatus !== 'idle' && <button className="primaryButton" onClick={resetGame}>Reset</button>}
+                            
+                            {questData.gameType === 'pond' && (
+                                <button className="primaryButton" onClick={() => setIsDocsOpen(true)} title={t('Pond.docsTooltip')}>
+                                    {t('Pond.documentation')}
+                                </button>
+                            )}
+                        </>
+                        )}
+                    </div>
+                    {currentEditor === 'blockly' && maxBlocks && isFinite(maxBlocks) && (
+                        <div style={{ fontFamily: 'monospace' }}>Blocks: {blockCount} / {maxBlocks}</div>
                     )}
-                  </>
-                )}
-              </div>
-              {currentEditor === 'blockly' && maxBlocks && isFinite(maxBlocks) && (
-                <div style={{ fontFamily: 'monospace' }}>Blocks: {blockCount} / {maxBlocks}</div>
-              )}
+                    </div>
+                    {questData && GameRenderer ? (
+                    <Visualization
+                        GameRenderer={GameRenderer}
+                        gameState={currentGameState}
+                        gameConfig={questData.gameConfig}
+                        ref={questData.gameType === 'turtle' ? rendererRef : undefined}
+                        solutionCommands={solutionCommands}
+                    />
+                    ) : (
+                    <div className="emptyState"><h2>Load quest to play</h2></div>
+                    )}
+                    {questData && (
+                    <div className="descriptionArea">Task: {t(questData.descriptionKey)}</div>
+                    )}
+                </div>
+                <div className="importer-container">
+                    <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
+                    <LanguageSelector />
+                    {importError && <p style={{ color: 'red', fontSize: '12px', textAlign: 'center' }}>{importError}</p>}
+                </div>
             </div>
-            {questData && GameRenderer ? (
-              <Visualization
-                GameRenderer={GameRenderer}
-                gameState={currentGameState}
-                gameConfig={questData.gameConfig}
-                ref={questData.gameType === 'turtle' ? rendererRef : undefined}
-                solutionCommands={solutionCommands}
-              />
-            ) : (
-              <div className="emptyState"><h2>Load quest to play</h2></div>
-            )}
-            {questData && (
-              <div className="descriptionArea">Task: {t(questData.descriptionKey)}</div>
-            )}
-          </div>
-          <div className="importer-container">
-            <QuestImporter onQuestLoad={handleQuestLoad} onError={setImportError} />
-            <LanguageSelector />
-            {importError && <p style={{ color: 'red', fontSize: '12px', textAlign: 'center' }}>{importError}</p>}
-          </div>
-        </div>
-        <div className="blocklyColumn">
-          {questData && (
-            <EditorToolbar
-              supportedEditors={questData.supportedEditors || ['blockly']}
-              currentEditor={currentEditor}
-              onEditorChange={handleEditorChange}
-              onToggleSettings={() => setIsSettingsOpen(!isSettingsOpen)}
-            />
-          )}
-          {questData && GameRenderer ? (
-            currentEditor === 'monaco' ? (
-              <MonacoEditor
-                initialCode={aceCode}
-                onChange={(value) => setAceCode(value || '')}
-              />
-            ) : (
-              <>
-                {processedToolbox && questData?.blocklyConfig && (
-                    <BlocklyWorkspace
-                    key={`${questData.id}-${renderer}-${blocklyThemeName}-${effectiveColorScheme}-${toolboxMode}`}
-                    className="fill-container"
-                    toolboxConfiguration={processedToolbox}
-                    initialXml={questData.blocklyConfig.startBlocks}
-                    workspaceConfiguration={workspaceConfiguration}
-                    onWorkspaceChange={(workspace) => {
-                        workspaceRef.current = workspace;
-                        setBlockCount(workspace.getAllBlocks(false).length);
-                    }}
+        </Panel>
+        <PanelResizeHandle />
+        <Panel minSize={30}>
+            <div className="blocklyColumn">
+                {questData && (
+                    <EditorToolbar
+                    supportedEditors={questData.supportedEditors || ['blockly']}
+                    currentEditor={currentEditor}
+                    onEditorChange={handleEditorChange}
+                    onToggleSettings={() => setIsSettingsOpen(!isSettingsOpen)}
                     />
                 )}
-                <SettingsPanel 
-                    isOpen={isSettingsOpen}
-                    renderer={renderer}
-                    onRendererChange={setRenderer}
-                    blocklyThemeName={blocklyThemeName}
-                    onBlocklyThemeNameChange={setBlocklyThemeName}
-                    gridEnabled={gridEnabled}
-                    onGridChange={setGridEnabled}
-                    soundsEnabled={soundsEnabled}
-                    onSoundsChange={setSoundsEnabled}
-                    colorSchemeMode={colorSchemeMode}
-                    onColorSchemeChange={setColorSchemeMode}
-                    toolboxMode={toolboxMode}
-                    onToolboxModeChange={setToolboxMode}
-                />
-              </>
-            )
-          ) : (
-            <div className="emptyState">
-              <h2>Coding area</h2>
-              <p>Waiting for a Quest</p>
+                {questData && GameRenderer ? (
+                    currentEditor === 'monaco' ? (
+                    <MonacoEditor
+                        initialCode={aceCode}
+                        onChange={(value) => setAceCode(value || '')}
+                    />
+                    ) : (
+                    <>
+                        {processedToolbox && questData?.blocklyConfig && (
+                            <BlocklyWorkspace
+                            key={`${questData.id}-${renderer}-${blocklyThemeName}-${effectiveColorScheme}-${toolboxMode}`}
+                            className="fill-container"
+                            toolboxConfiguration={processedToolbox}
+                            initialXml={questData.blocklyConfig.startBlocks}
+                            workspaceConfiguration={workspaceConfiguration}
+                            onWorkspaceChange={(workspace) => {
+                                workspaceRef.current = workspace;
+                                setBlockCount(workspace.getAllBlocks(false).length);
+                            }}
+                            />
+                        )}
+                        <SettingsPanel 
+                            isOpen={isSettingsOpen}
+                            renderer={renderer}
+                            onRendererChange={setRenderer}
+                            blocklyThemeName={blocklyThemeName}
+                            onBlocklyThemeNameChange={setBlocklyThemeName}
+                            gridEnabled={gridEnabled}
+                            onGridChange={setGridEnabled}
+                            soundsEnabled={soundsEnabled}
+                            onSoundsChange={setSoundsEnabled}
+                            colorSchemeMode={colorSchemeMode}
+                            onColorSchemeChange={setColorSchemeMode}
+                            toolboxMode={toolboxMode}
+                            onToolboxModeChange={setToolboxMode}
+                        />
+                    </>
+                    )
+                ) : (
+                    <div className="emptyState">
+                      <h2>Coding area</h2>
+                      <p>Waiting for a Quest</p>
+                    </div>
+                )}
             </div>
-          )}
-        </div>
-      </div>
+        </Panel>
+      </PanelGroup>
     </>
   );
 };

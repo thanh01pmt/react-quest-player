@@ -29,12 +29,23 @@ body {
 }
 
 .appContainer {
+  height: 100vh;
   display: flex;
 }
 
+/* --- Resizable Panel Handle --- */
+[data-resize-handle-id] {
+    width: 6px;
+    background-color: var(--border-color);
+    transition: background-color 0.2s ease;
+}
+
+[data-resize-handle-id]:hover {
+    background-color: #007bff; /* A highlight color on hover */
+}
+
 .visualizationColumn {
-  flex-basis: 450px;
-  flex-shrink: 0;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: var(--background-color);
@@ -80,7 +91,6 @@ body {
   height: 100vh;
   width: calc(100vw - 450px);
   border: 1px solid var(--border-color);
-  /* flex-grow: 1; */
 }
 
 .fill-container {
