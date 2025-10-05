@@ -30,7 +30,6 @@ export function init() {
       const dropdown = this.getField('DIR');
       if (!dropdown || typeof (dropdown as any).getOptions !== 'function') return;
       const options = (dropdown as any).getOptions(false); // Get raw options
-      // This logic assumes a fixed order, which is safe for our definition
       if (options[0]) options[0][0] = `${i18n.t('Maze.turnLeft')}${LEFT_TURN}`;
       if (options[1]) options[1][0] = `${i18n.t('Maze.turnRight')}${RIGHT_TURN}`;
   });
@@ -43,6 +42,14 @@ export function init() {
       "nextStatement": null,
       "colour": MOVEMENT_HUE,
       "tooltip": i18n.t('Maze.moveForwardTooltip'),
+    },
+    {
+      "type": "maze_jump",
+      "message0": "jump", // Sẽ cần thêm key i18n sau: i18n.t('Maze.jump')
+      "previousStatement": null,
+      "nextStatement": null,
+      "colour": MOVEMENT_HUE,
+      "tooltip": "Jumps forward one space.", // Sẽ cần thêm key i18n sau
     },
     {
       "type": "maze_turn",
@@ -101,6 +108,9 @@ export function init() {
 
   javascriptGenerator.forBlock['maze_moveForward'] = function(block: Blockly.Block) {
     return `highlightBlock('block_id_${block.id}');\nmoveForward();\n`;
+  };
+  javascriptGenerator.forBlock['maze_jump'] = function(block: Blockly.Block) {
+    return `highlightBlock('block_id_${block.id}');\njump();\n`;
   };
   javascriptGenerator.forBlock['maze_turn'] = function(block: Blockly.Block) {
     const dir = block.getFieldValue('DIR');

@@ -3,17 +3,18 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode } from '../../types';
+import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode, Block } from '../../types';
 import type { MazeGameState } from './types';
 import { RobotCharacter } from './components/RobotCharacter';
 import { CameraRig } from './components/CameraRig';
-import Block from './components/Block';
+import BlockComponent from './components/Block'; // Đổi tên để tránh xung đột với type Block
 
 interface IGameRenderer extends IGameRendererBase {
   cameraMode?: CameraMode;
 }
 
 const TILE_SIZE = 2;
+const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
 
 // --- Helper Components ---
 
@@ -30,8 +31,6 @@ const FinishMarker: React.FC<{ position: [number, number, number] }> = ({ positi
 
 const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotRef: React.RefObject<THREE.Group> }> = ({ gameConfig, gameState, robotRef }) => {
   const robotPosition = useMemo(() => {
-    // SỬA LỖI: Sử dụng công thức tính toán độ cao Y chính xác.
-    // Độ cao của mặt sàn = (y của khối bên dưới) * TILE_SIZE + nửa chiều cao khối
     const groundY = (gameState.player.y - 1) * TILE_SIZE;
     const surfaceY = groundY + TILE_SIZE / 2;
 
@@ -45,9 +44,9 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
 
   return (
     <group>
-      {/* Render các khối từ mảng gameConfig.blocks */}
-      {gameConfig.blocks.map((block, index) => (
-        <Block 
+      {/* SỬA LỖI: Kiểm tra sự tồn tại của 'blocks' */}
+      {gameConfig.blocks?.map((block, index) => (
+        <BlockComponent 
           key={index} 
           modelKey={block.modelKey} 
           position={[
@@ -58,17 +57,15 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
         />
       ))}
 
-      {/* Render Finish Marker tại vị trí 3D */}
       <FinishMarker 
         position={[
           gameConfig.finish.x * TILE_SIZE, 
-          // SỬA LỖI: Tính toán độ cao Y cho marker tương tự robot
+          // SỬA LỖI: Thêm fallback cho z
           (gameConfig.finish.y - 1) * TILE_SIZE + TILE_SIZE / 2,
-          gameConfig.finish.z * TILE_SIZE
+          (gameConfig.finish.z ?? gameConfig.finish.y) * TILE_SIZE
         ]} 
       />
       
-      {/* Robot được render tại vị trí 3D đã tính toán */}
       <RobotCharacter 
         ref={robotRef}
         position={robotPosition} 
@@ -84,9 +81,34 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
 export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMode = 'Follow' }) => {
     const robotRef = useRef<THREE.Group>(null);
     const mazeState = gameState as MazeGameState;
-    const mazeConfig = gameConfig as MazeConfig;
+    
+    // SỬA LỖI: Tạo một config đã được chuẩn hóa
+    const normalizedConfig = useMemo((): MazeConfig => {
+      if (gameConfig.type === 'maze' && gameConfig.map) {
+        // Đây là config 2D, cần chuyển đổi
+        const blocks: Block[] = [];
+        for (let y = 0; y < gameConfig.map.length; y++) {
+          for (let x = 0; x < gameConfig.map[y].length; x++) {
+            const cell = gameConfig.map[y][x];
+            if (cell === SquareType.WALL) {
+              blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
+            } else if (cell !== 0) {
+              blocks.push({ modelKey: 'ground.normal', position: { x, y: 0, z: y } });
+            }
+          }
+        }
+        return {
+          ...gameConfig,
+          blocks: blocks,
+          finish: { ...gameConfig.finish, z: gameConfig.finish.y }, // Thêm z cho finish
+        };
+      }
+      // Đây là config 3D, trả về trực tiếp
+      return gameConfig as MazeConfig;
+    }, [gameConfig]);
 
-    if (!mazeState || !mazeConfig) return null;
+
+    if (!mazeState || !normalizedConfig) return null;
 
     return (
       <Canvas
@@ -107,7 +129,7 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
         
         <CameraRig targetRef={robotRef} mode={cameraMode} />
         
-        <Scene gameConfig={mazeConfig} gameState={mazeState} robotRef={robotRef} />
+        <Scene gameConfig={normalizedConfig} gameState={mazeState} robotRef={robotRef} />
       </Canvas>
     );
 };

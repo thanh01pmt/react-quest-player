@@ -80,7 +80,6 @@ export interface Position3D {
   z: number;
 }
 
-// SỬA LỖI: Thêm từ khóa 'export'
 export interface Block {
   modelKey: string;
   position: Position3D;
@@ -88,12 +87,17 @@ export interface Block {
 
 export interface MazeConfig {
   type: 'maze';
-  blocks: Block[]; // Thay thế 'map' bằng 'blocks'
-  player: {
-    start: Position3D & { direction: 0 | 1 | 2 | 3 }; // Thêm 'y'
-  };
-  finish: Position3D; // finish giờ là một vị trí 3D
   renderer?: '2d' | '3d';
+  // Config có thể chứa một trong hai
+  map?: number[][]; 
+  blocks?: Block[];
+  player: {
+    // Trong 2D, y là hàng, z không tồn tại.
+    // Trong 3D, y là độ cao, z là chiều sâu.
+    start: { x: number, y: number, z?: number, direction: 0 | 1 | 2 | 3 };
+  };
+  // Tương tự, z là optional cho 2D.
+  finish: { x: number, y: number, z?: number };
 }
 
 export interface TurtleConfig {

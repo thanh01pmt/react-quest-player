@@ -5,6 +5,7 @@ import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig, Bl
 import type { MazeGameState, Direction, ResultType, PlayerState } from './types';
 
 const EXECUTION_TIMEOUT_TICKS = 10000;
+const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
 
 export class MazeEngine implements IGameEngine {
   private readonly blocks: Block[];
@@ -17,19 +18,55 @@ export class MazeEngine implements IGameEngine {
 
   constructor(gameConfig: GameConfig) {
     const config = gameConfig as MazeConfig;
-    this.blocks = config.blocks;
-    this.finish = config.finish;
+    
+    // LỚP TƯƠNG THÍCH (COMPATIBILITY LAYER)
+    if (config.map) {
+      // Chuyển đổi từ định dạng 2D 'map' sang 3D 'blocks'
+      this.blocks = [];
+      for (let y = 0; y < config.map.length; y++) {
+        for (let x = 0; x < config.map[y].length; x++) {
+          const cell = config.map[y][x];
+          if (cell === SquareType.WALL) {
+            this.blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
+          } else if (cell !== 0) { // OPEN, START, FINISH đều là đường đi
+            this.blocks.push({ modelKey: 'ground.normal', position: { x, y: 0, z: y } });
+          }
+        }
+      }
+      // Chuẩn hóa tọa độ start/finish từ 2D sang 3D
+      this.start = {
+        x: config.player.start.x,
+        y: 1, // Đứng trên khối y=0
+        z: config.player.start.y, // y của map là z của 3D
+        direction: config.player.start.direction,
+        pose: 'Idle'
+      };
+      this.finish = {
+        x: config.finish.x,
+        y: 1, // Đứng trên khối y=0
+        z: config.finish.y, // y của map là z của 3D
+      };
+
+    } else if (config.blocks) {
+      // Sử dụng trực tiếp định dạng 3D 'blocks'
+      this.blocks = config.blocks;
+      this.start = {
+        x: config.player.start.x,
+        y: config.player.start.y,
+        z: config.player.start.z!,
+        direction: config.player.start.direction,
+        pose: 'Idle'
+      };
+      this.finish = {
+        x: config.finish.x,
+        y: config.finish.y,
+        z: config.finish.z!,
+      };
+    } else {
+      throw new Error("Invalid MazeConfig: must contain 'map' or 'blocks'");
+    }
     
     this.blockSet = new Set(this.blocks.map(b => `${b.position.x},${b.position.y},${b.position.z}`));
-
-    // SỬA LỖI: Khởi tạo PlayerState 3D đầy đủ
-    this.start = {
-      x: config.player.start.x,
-      y: config.player.start.y,
-      z: config.player.start.z,
-      direction: config.player.start.direction,
-      pose: 'Idle',
-    };
   }
 
   getInitialState(): MazeGameState {
@@ -49,6 +86,7 @@ export class MazeEngine implements IGameEngine {
       interpreter.setProperty(globalObject, 'moveForward', wrapper(this.moveForward));
       interpreter.setProperty(globalObject, 'turnLeft', wrapper(this.turnLeft));
       interpreter.setProperty(globalObject, 'turnRight', wrapper(this.turnRight));
+      interpreter.setProperty(globalObject, 'jump', wrapper(this.jump)); // Thêm API jump
       interpreter.setProperty(globalObject, 'isPathForward', wrapper(() => this.isPath(0)));
       interpreter.setProperty(globalObject, 'isPathRight', wrapper(() => this.isPath(1)));
       interpreter.setProperty(globalObject, 'isPathLeft', wrapper(() => this.isPath(3)));
@@ -87,16 +125,14 @@ export class MazeEngine implements IGameEngine {
 
   checkWinCondition(finalState: GameState, _solutionConfig: SolutionConfig): boolean {
     const state = finalState as MazeGameState;
-    // SỬA LỖI: So sánh cả 3 tọa độ
     return state.player.x === this.finish.x && state.player.y === this.finish.y && state.player.z === this.finish.z;
   }
 
-  // SỬA LỖI: Hàm này hoạt động trên mặt phẳng XZ
   private getNextPosition(x: number, z: number, direction: Direction): { x: number, z: number } {
-    if (direction === 0) z--; // North
-    else if (direction === 1) x++; // East
-    else if (direction === 2) z++; // South
-    else if (direction === 3) x--; // West
+    if (direction === 0) z--;
+    else if (direction === 1) x++;
+    else if (direction === 2) z++;
+    else if (direction === 3) x--;
     return { x, z };
   }
   
@@ -108,7 +144,6 @@ export class MazeEngine implements IGameEngine {
 
   private moveForward(): void {
     const { player } = this.currentState;
-    // SỬA LỖI: Sử dụng player.z cho chiều sâu
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
     let targetY: number | null = null;
@@ -129,11 +164,33 @@ export class MazeEngine implements IGameEngine {
     
     player.x = nextX;
     player.y = targetY;
-    player.z = nextZ; // SỬA LỖI: Cập nhật player.z
+    player.z = nextZ;
     this.logState();
 
     player.pose = 'Idle';
     this.logState();
+  }
+
+  // HÀM MỚI: jump
+  private jump(): void {
+    const { player } = this.currentState;
+    const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
+
+    // Ưu tiên nhảy lên khối phía trước
+    if (this.isWalkable(nextX, player.y + 1, nextZ)) {
+        player.pose = 'Jumping'; // Bắt đầu animation
+        this.logState();
+
+        player.x = nextX;
+        player.y = player.y + 1;
+        player.z = nextZ;
+        this.logState();
+
+        player.pose = 'Idle'; // Kết thúc animation
+        this.logState();
+    } else {
+        throw new Error('Cannot jump there');
+    }
   }
 
   private turnLeft(): void {
@@ -151,7 +208,6 @@ export class MazeEngine implements IGameEngine {
   private isPath(relativeDirection: 0 | 1 | 3): boolean {
     const { player } = this.currentState;
     const effectiveDirection = this.constrainDirection(player.direction + relativeDirection);
-    // SỬA LỖI: Sử dụng player.z cho chiều sâu
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, effectiveDirection);
 
     return (
@@ -163,7 +219,6 @@ export class MazeEngine implements IGameEngine {
 
   private notDone(): boolean {
     const { player } = this.currentState;
-    // SỬA LỖI: So sánh cả 3 tọa độ
     return player.x !== this.finish.x || player.y !== this.finish.y || player.z !== this.finish.z;
   }
 

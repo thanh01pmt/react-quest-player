@@ -5,7 +5,7 @@ import { z } from 'zod';
 // Schema for the Blockly toolbox (JSON format)
 const toolboxJsonSchema = z.object({
   kind: z.enum(['flyoutToolbox', 'categoryToolbox']),
-  contents: z.array(z.any()), // Keep 'any' for now for simplicity, can be refined later
+  contents: z.array(z.any()),
 });
 
 // Schema for Blockly configuration
@@ -15,14 +15,13 @@ const blocklyConfigSchema = z.object({
   startBlocks: z.string().optional(),
 });
 
-// NEW: Schema for Monaco configuration
 const monacoConfigSchema = z.object({
     initialCode: z.string(),
 });
 
 // --- Game-specific Config Schemas ---
 
-const positionSchema = z.object({
+const position3DSchema = z.object({
   x: z.number(),
   y: z.number(),
   z: z.number(),
@@ -30,20 +29,46 @@ const positionSchema = z.object({
 
 const blockSchema = z.object({
   modelKey: z.string(),
-  position: positionSchema,
+  position: position3DSchema,
 });
 
+// Sửa đổi MazeConfig để linh hoạt hơn
 const mazeConfigSchema = z.object({
   type: z.literal('maze'),
-  blocks: z.array(blockSchema), // Thay thế 'map' bằng 'blocks'
+  renderer: z.enum(['2d', '3d']).optional(),
+  
+  // Cả hai đều là optional
+  map: z.array(z.array(z.number())).optional(),
+  blocks: z.array(blockSchema).optional(),
+
   player: z.object({
-    start: positionSchema.extend({ // Thêm 'y' và 'direction'
+    start: z.object({
+      x: z.number(),
+      y: z.number(),
+      z: z.number().optional(), // z là optional cho 2D
       direction: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
     }),
   }),
-  finish: positionSchema, // finish giờ là một vị trí 3D
-  renderer: z.enum(['2d', '3d']).optional(),
+  finish: z.object({
+    x: z.number(),
+    y: z.number(),
+    z: z.number().optional(), // z là optional cho 2D
+  }),
+}).superRefine((data, ctx) => {
+  if (!data.map && !data.blocks) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Maze config must have either 'map' or 'blocks'",
+    });
+  }
+  if (data.map && data.blocks) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Maze config cannot have both 'map' and 'blocks'",
+    });
+  }
 });
+
 
 const turtleConfigSchema = z.object({
   type: z.literal('turtle'),
@@ -70,14 +95,12 @@ const pondConfigSchema = z.object({
     avatars: z.array(pondAvatarConfigSchema),
 });
 
-// A discriminated union for all possible game configurations.
 const gameConfigSchema = z.discriminatedUnion('type', [
   mazeConfigSchema,
   turtleConfigSchema,
   pondConfigSchema,
 ]);
 
-// Schema for the solution configuration
 const solutionConfigSchema = z.object({
   type: z.enum(['reach_target', 'match_drawing', 'match_music', 'survive_battle', 'destroy_target']),
   pixelTolerance: z.number().optional(),

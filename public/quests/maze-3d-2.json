@@ -22,6 +22,10 @@
           },
           {
             "kind": "block",
+            "type": "maze_jump"
+          },
+          {
+            "kind": "block",
             "type": "maze_turn",
             "fields": {
               "DIR": "turnLeft"
