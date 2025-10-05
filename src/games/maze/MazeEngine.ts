@@ -1,54 +1,54 @@
 // src/games/maze/MazeEngine.ts
 
 import Interpreter from 'js-interpreter';
-import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig, Block } from '../../types';
-import type { MazeGameState, Direction, ResultType, PlayerState } from './types';
+// SỬA LỖI: Xóa ResultType khỏi import
+import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig, Block, StepResult } from '../../types';
+import type { MazeGameState, Direction, PlayerState } from './types';
 
-const EXECUTION_TIMEOUT_TICKS = 10000;
+const STEPS_PER_FRAME = 100;
 const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
 
 export class MazeEngine implements IGameEngine {
   private readonly blocks: Block[];
-  private readonly blockSet: Set<string>; // For fast lookups: 'x,y,z'
+  private readonly blockSet: Set<string>;
   private readonly start: PlayerState;
   private readonly finish: { x: number; y: number; z: number };
 
   private currentState!: MazeGameState;
-  private log!: MazeGameState[];
+  
+  // SỬA LỖI: Sử dụng 'any' cho interpreter
+  private interpreter: any | null = null;
+  private onHighlightCallback: (id: string) => void = () => {};
+  private highlightedBlockId: string | null = null;
 
   constructor(gameConfig: GameConfig) {
     const config = gameConfig as MazeConfig;
     
-    // LỚP TƯƠNG THÍCH (COMPATIBILITY LAYER)
     if (config.map) {
-      // Chuyển đổi từ định dạng 2D 'map' sang 3D 'blocks'
       this.blocks = [];
       for (let y = 0; y < config.map.length; y++) {
         for (let x = 0; x < config.map[y].length; x++) {
           const cell = config.map[y][x];
           if (cell === SquareType.WALL) {
             this.blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
-          } else if (cell !== 0) { // OPEN, START, FINISH đều là đường đi
+          } else if (cell !== 0) {
             this.blocks.push({ modelKey: 'ground.normal', position: { x, y: 0, z: y } });
           }
         }
       }
-      // Chuẩn hóa tọa độ start/finish từ 2D sang 3D
       this.start = {
         x: config.player.start.x,
-        y: 1, // Đứng trên khối y=0
-        z: config.player.start.y, // y của map là z của 3D
+        y: 1,
+        z: config.player.start.y,
         direction: config.player.start.direction,
         pose: 'Idle'
       };
       this.finish = {
         x: config.finish.x,
-        y: 1, // Đứng trên khối y=0
-        z: config.finish.y, // y của map là z của 3D
+        y: 1,
+        z: config.finish.y,
       };
-
     } else if (config.blocks) {
-      // Sử dụng trực tiếp định dạng 3D 'blocks'
       this.blocks = config.blocks;
       this.start = {
         x: config.player.start.x,
@@ -77,16 +77,17 @@ export class MazeEngine implements IGameEngine {
     };
   }
 
-  execute(userCode: string, onHighlight: (blockId: string) => void): GameState[] {
+  execute(userCode: string, onHighlight: (blockId: string) => void): void {
     this.currentState = this.getInitialState();
-    this.log = [this.getInitialState()];
+    this.onHighlightCallback = onHighlight;
+    this.highlightedBlockId = null;
 
     const initApi = (interpreter: any, globalObject: any) => {
       const wrapper = (func: (...args: any[]) => any) => interpreter.createNativeFunction(func.bind(this));
       interpreter.setProperty(globalObject, 'moveForward', wrapper(this.moveForward));
       interpreter.setProperty(globalObject, 'turnLeft', wrapper(this.turnLeft));
       interpreter.setProperty(globalObject, 'turnRight', wrapper(this.turnRight));
-      interpreter.setProperty(globalObject, 'jump', wrapper(this.jump)); // Thêm API jump
+      interpreter.setProperty(globalObject, 'jump', wrapper(this.jump));
       interpreter.setProperty(globalObject, 'isPathForward', wrapper(() => this.isPath(0)));
       interpreter.setProperty(globalObject, 'isPathRight', wrapper(() => this.isPath(1)));
       interpreter.setProperty(globalObject, 'isPathLeft', wrapper(() => this.isPath(3)));
@@ -94,33 +95,49 @@ export class MazeEngine implements IGameEngine {
 
       const highlightWrapper = (id: string) => {
         const realId = id ? id.replace('block_id_', '') : '';
-        onHighlight(realId);
+        this.highlightedBlockId = realId;
+        this.onHighlightCallback(realId);
       };
       interpreter.setProperty(globalObject, 'highlightBlock', interpreter.createNativeFunction(highlightWrapper));
     };
 
-    const interpreter = new Interpreter(userCode, initApi);
-    let result: ResultType = 'unset';
+    this.interpreter = new Interpreter(userCode, initApi);
+  }
 
-    try {
-      let ticks = EXECUTION_TIMEOUT_TICKS;
-      while (interpreter.step()) {
-        if (ticks-- <= 0) throw new Error('Timeout');
-      }
-      result = this.notDone() ? 'failure' : 'success';
-    } catch (e: any) {
-      result = e.message === 'Timeout' ? 'timeout' : 'error';
+  step(): StepResult {
+    if (!this.interpreter || this.currentState.isFinished) {
+      return null;
+    }
+
+    this.highlightedBlockId = null;
+    let hasMoreCode = false;
+
+    for (let i = 0; i < STEPS_PER_FRAME; i++) {
+        try {
+            hasMoreCode = this.interpreter.step();
+        } catch (e) {
+            this.currentState.result = 'error';
+            this.currentState.isFinished = true;
+            return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
+        }
+        if (!hasMoreCode || this.highlightedBlockId) {
+            break;
+        }
+    }
+
+    if (!hasMoreCode) {
+        this.currentState.result = this.notDone() ? 'failure' : 'success';
+        if (this.currentState.result === 'success') {
+            this.logVictoryAnimation();
+        }
+        this.currentState.isFinished = true;
     }
     
-    if (result === 'success') {
-      this.logVictoryAnimation();
-    }
-    
-    this.currentState.isFinished = true;
-    this.currentState.result = result;
-    this.log.push(JSON.parse(JSON.stringify(this.currentState)));
-    
-    return this.log;
+    return {
+        done: this.currentState.isFinished,
+        state: JSON.parse(JSON.stringify(this.currentState)),
+        highlightedBlockId: this.highlightedBlockId
+    };
   }
 
   checkWinCondition(finalState: GameState, _solutionConfig: SolutionConfig): boolean {
@@ -147,9 +164,7 @@ export class MazeEngine implements IGameEngine {
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
     let targetY: number | null = null;
-    if (this.isWalkable(nextX, player.y + 1, nextZ)) {
-      targetY = player.y + 1;
-    } else if (this.isWalkable(nextX, player.y, nextZ)) {
+    if (this.isWalkable(nextX, player.y, nextZ)) {
       targetY = player.y;
     } else if (this.isWalkable(nextX, player.y - 1, nextZ)) {
       targetY = player.y - 1;
@@ -160,34 +175,20 @@ export class MazeEngine implements IGameEngine {
     }
 
     player.pose = 'Walking';
-    this.logState();
-    
     player.x = nextX;
     player.y = targetY;
     player.z = nextZ;
-    this.logState();
-
-    player.pose = 'Idle';
-    this.logState();
   }
 
-  // HÀM MỚI: jump
   private jump(): void {
     const { player } = this.currentState;
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
-    // Ưu tiên nhảy lên khối phía trước
     if (this.isWalkable(nextX, player.y + 1, nextZ)) {
-        player.pose = 'Jumping'; // Bắt đầu animation
-        this.logState();
-
+        player.pose = 'Jumping';
         player.x = nextX;
         player.y = player.y + 1;
         player.z = nextZ;
-        this.logState();
-
-        player.pose = 'Idle'; // Kết thúc animation
-        this.logState();
     } else {
         throw new Error('Cannot jump there');
     }
@@ -196,13 +197,11 @@ export class MazeEngine implements IGameEngine {
   private turnLeft(): void {
     this.currentState.player.direction = this.constrainDirection(this.currentState.player.direction - 1);
     this.currentState.player.pose = 'Idle';
-    this.logState();
   }
 
   private turnRight(): void {
     this.currentState.player.direction = this.constrainDirection(this.currentState.player.direction + 1);
     this.currentState.player.pose = 'Idle';
-    this.logState();
   }
 
   private isPath(relativeDirection: 0 | 1 | 3): boolean {
@@ -221,17 +220,9 @@ export class MazeEngine implements IGameEngine {
     const { player } = this.currentState;
     return player.x !== this.finish.x || player.y !== this.finish.y || player.z !== this.finish.z;
   }
-
-  private logState(): void {
-    this.log.push(JSON.parse(JSON.stringify(this.currentState)));
-  }
   
   private logVictoryAnimation(): void {
     this.currentState.player.pose = 'Victory';
-    this.logState();
-    this.logState();
-    this.currentState.player.pose = 'Idle';
-    this.logState();
   }
 
   private constrainDirection(d: number): Direction {

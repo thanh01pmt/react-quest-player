@@ -7,7 +7,7 @@ import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode, Block 
 import type { MazeGameState } from './types';
 import { RobotCharacter } from './components/RobotCharacter';
 import { CameraRig } from './components/CameraRig';
-import BlockComponent from './components/Block'; // Đổi tên để tránh xung đột với type Block
+import BlockComponent from './components/Block';
 
 interface IGameRenderer extends IGameRendererBase {
   cameraMode?: CameraMode;
@@ -15,6 +15,7 @@ interface IGameRenderer extends IGameRendererBase {
 
 const TILE_SIZE = 2;
 const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
+
 
 // --- Helper Components ---
 
@@ -44,8 +45,8 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
 
   return (
     <group>
-      {/* SỬA LỖI: Kiểm tra sự tồn tại của 'blocks' */}
-      {gameConfig.blocks?.map((block, index) => (
+      {/* SỬA LỖI: Luôn có gameConfig.blocks vì đã được chuẩn hóa */}
+      {gameConfig.blocks!.map((block, index) => (
         <BlockComponent 
           key={index} 
           modelKey={block.modelKey} 
@@ -59,10 +60,10 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
 
       <FinishMarker 
         position={[
-          gameConfig.finish.x * TILE_SIZE, 
-          // SỬA LỖI: Thêm fallback cho z
+          gameConfig.finish.x * TILE_SIZE,
           (gameConfig.finish.y - 1) * TILE_SIZE + TILE_SIZE / 2,
-          (gameConfig.finish.z ?? gameConfig.finish.y) * TILE_SIZE
+          // SỬA LỖI: Luôn có gameConfig.finish.z vì đã được chuẩn hóa
+          gameConfig.finish.z! * TILE_SIZE
         ]} 
       />
       
@@ -82,14 +83,15 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
     const robotRef = useRef<THREE.Group>(null);
     const mazeState = gameState as MazeGameState;
     
-    // SỬA LỖI: Tạo một config đã được chuẩn hóa
+    // LỚP TƯƠNG THÍCH (COMPATIBILITY LAYER)
     const normalizedConfig = useMemo((): MazeConfig => {
-      if (gameConfig.type === 'maze' && gameConfig.map) {
+      const config = gameConfig as MazeConfig;
+      if (config.map) {
         // Đây là config 2D, cần chuyển đổi
         const blocks: Block[] = [];
-        for (let y = 0; y < gameConfig.map.length; y++) {
-          for (let x = 0; x < gameConfig.map[y].length; x++) {
-            const cell = gameConfig.map[y][x];
+        for (let y = 0; y < config.map.length; y++) {
+          for (let x = 0; x < config.map[y].length; x++) {
+            const cell = config.map[y][x];
             if (cell === SquareType.WALL) {
               blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
             } else if (cell !== 0) {
@@ -98,13 +100,13 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
           }
         }
         return {
-          ...gameConfig,
+          ...config,
           blocks: blocks,
-          finish: { ...gameConfig.finish, z: gameConfig.finish.y }, // Thêm z cho finish
+          finish: { ...config.finish, z: config.finish.y }, // Thêm z cho finish
         };
       }
       // Đây là config 3D, trả về trực tiếp
-      return gameConfig as MazeConfig;
+      return config;
     }, [gameConfig]);
 
 

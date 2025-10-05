@@ -12,7 +12,10 @@ const ANIMATION_MAP: { [key: string]: string } = {
   Idle: 'Idle',
   Walking: 'Walking',
   Victory: 'Wave',
+  Jumping: 'Jump',
 };
+
+const ONE_SHOT_ANIMATIONS = ['Victory', 'Jumping'];
 
 const DIRECTION_TO_ROTATION: Record<Direction, number> = {
   0: Math.PI,
@@ -29,38 +32,56 @@ interface RobotCharacterProps {
 
 const TILE_SIZE = 2;
 
-// SỬA LỖI: Bọc component trong `forwardRef`
 export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
   ({ position, direction, animationName }, ref) => {
     
-    // `ref` được truyền từ component cha sẽ được sử dụng trực tiếp
-    // nên không cần `useRef` nội bộ nữa.
-
     const { scene, animations } = useGLTF(ROBOT_MODEL_PATH);
-    // `useAnimations` giờ sẽ sử dụng `ref` được truyền vào
-    const { actions } = useAnimations(animations, ref as React.RefObject<THREE.Group>);
+    const { actions, mixer } = useAnimations(animations, ref as React.RefObject<THREE.Group>);
 
     useEffect(() => {
       console.log('Available animations in draco-robot.glb:', animations.map(a => a.name));
     }, [animations]);
 
     useEffect(() => {
-      const targetAnimation = ANIMATION_MAP[animationName] || ANIMATION_MAP.Idle;
-      const newAction = actions[targetAnimation];
+      const targetAnimationName = ANIMATION_MAP[animationName] || ANIMATION_MAP.Idle;
+      const newAction = actions[targetAnimationName];
 
-      if (newAction) {
-        const activeAction = Object.values(actions).find(a => a && a.isRunning());
-        if (newAction !== activeAction) {
-          if (activeAction) {
-            activeAction.fadeOut(0.2);
-          }
-          newAction.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.2).play();
+      if (!newAction) {
+        console.warn(`Animation not found: ${targetAnimationName}`);
+        return;
+      }
+      
+      const activeAction = Object.values(actions).find(a => a && a.isRunning());
+      
+      if (newAction !== activeAction) {
+        if (activeAction) {
+          activeAction.fadeOut(0.2);
+        }
+
+        if (ONE_SHOT_ANIMATIONS.includes(animationName)) {
+            newAction.reset().setLoop(THREE.LoopOnce, 1).fadeIn(0.2).play();
+            newAction.clampWhenFinished = true;
+
+            const onFinished = (event: any) => {
+                if (event.action === newAction) {
+                    const idleAction = actions[ANIMATION_MAP.Idle];
+                    if (idleAction) {
+                        newAction.fadeOut(0.2);
+                        idleAction.reset().fadeIn(0.2).play();
+                    }
+                    mixer.removeEventListener('finished', onFinished);
+                }
+            };
+            mixer.addEventListener('finished', onFinished);
+
+        } else {
+            newAction.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.2).play();
         }
       }
-    }, [animationName, actions]);
+    }, [animationName, actions, mixer]);
 
-    useFrame((_, delta) => {
-      // `ref` bây giờ là một forwardRef, cần kiểm tra `ref.current`
+    // SỬA LỖI: Thêm kiểu dữ liệu cho callback của useFrame
+    useFrame((state, delta) => {
       const group = (ref as React.RefObject<THREE.Group>).current;
       if (!group) return;
       
@@ -81,7 +102,6 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
     }, [scene]);
 
     return (
-      // SỬA LỖI: Gắn `ref` được truyền vào trực tiếp cho group này.
       <group ref={ref} dispose={null}>
         <primitive 
           object={scene} 
