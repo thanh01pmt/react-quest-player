@@ -30,7 +30,7 @@ body {
 
 .appContainer {
   height: 100vh;
-  display: flex;
+  /* SỬA LỖI: Xóa bỏ 'display: flex' để tránh xung đột với react-resizable-panels */
 }
 
 /* --- Resizable Panel Handle --- */
@@ -85,17 +85,19 @@ body {
   align-items: center;
 }
 
-/* --- Blockly Column --- */
 .blocklyColumn {
-  position: relative; 
-  height: 100vh;
-  width: calc(100vw - 450px);
+  position: relative;
+  width: 100%;
+  height: 100%;
   border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
 }
 
 .fill-container {
   width: 100%;
-  height: 100%;
+  flex-grow: 1;
+  min-height: 0;
 }
 
 /* --- Themed Components --- */
