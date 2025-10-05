@@ -5,9 +5,9 @@ import type { IGameEngine, GameState, Quest, StepResult, ExecutionMode } from '.
 import type { TurtleEngine } from '../../../games/turtle/TurtleEngine';
 import type { TurtleRendererHandle } from '../../../games/turtle/TurtleRenderer';
 
-const BATCH_FRAME_DELAY = 350;
-const STEP_FRAME_DELAY = 1000;
-const DEBUG_FRAME_DELAY = 1500; // Delay for debug mode
+const BATCH_FRAME_DELAY = 50;
+const STEP_FRAME_DELAY = 2000;
+const DEBUG_FRAME_DELAY = 2000; // Delay for debug mode
 
 type PlayerStatus = 'idle' | 'running' | 'paused' | 'finished';
 

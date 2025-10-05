@@ -1,7 +1,6 @@
 // src/games/maze/MazeEngine.ts
 
 import Interpreter from 'js-interpreter';
-// SỬA LỖI: Xóa ResultType khỏi import
 import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig, Block, StepResult } from '../../types';
 import type { MazeGameState, Direction, PlayerState } from './types';
 
@@ -16,10 +15,10 @@ export class MazeEngine implements IGameEngine {
 
   private currentState!: MazeGameState;
   
-  // SỬA LỖI: Sử dụng 'any' cho interpreter
   private interpreter: any | null = null;
   private onHighlightCallback: (id: string) => void = () => {};
   private highlightedBlockId: string | null = null;
+  private executedAction: boolean = false;
 
   constructor(gameConfig: GameConfig) {
     const config = gameConfig as MazeConfig;
@@ -83,15 +82,21 @@ export class MazeEngine implements IGameEngine {
     this.highlightedBlockId = null;
 
     const initApi = (interpreter: any, globalObject: any) => {
-      const wrapper = (func: (...args: any[]) => any) => interpreter.createNativeFunction(func.bind(this));
-      interpreter.setProperty(globalObject, 'moveForward', wrapper(this.moveForward));
-      interpreter.setProperty(globalObject, 'turnLeft', wrapper(this.turnLeft));
-      interpreter.setProperty(globalObject, 'turnRight', wrapper(this.turnRight));
-      interpreter.setProperty(globalObject, 'jump', wrapper(this.jump));
-      interpreter.setProperty(globalObject, 'isPathForward', wrapper(() => this.isPath(0)));
-      interpreter.setProperty(globalObject, 'isPathRight', wrapper(() => this.isPath(1)));
-      interpreter.setProperty(globalObject, 'isPathLeft', wrapper(() => this.isPath(3)));
-      interpreter.setProperty(globalObject, 'notDone', wrapper(this.notDone));
+      const actionWrapper = (func: (...args: any[]) => any) => interpreter.createNativeFunction((...args: any[]) => {
+        const result = func.call(this, ...args);
+        this.executedAction = true;
+        return result;
+      });
+      const queryWrapper = (func: (...args: any[]) => any) => interpreter.createNativeFunction((...args: any[]) => func.call(this, ...args));
+
+      interpreter.setProperty(globalObject, 'moveForward', actionWrapper(this.moveForward));
+      interpreter.setProperty(globalObject, 'turnLeft', actionWrapper(this.turnLeft));
+      interpreter.setProperty(globalObject, 'turnRight', actionWrapper(this.turnRight));
+      interpreter.setProperty(globalObject, 'jump', actionWrapper(this.jump));
+      interpreter.setProperty(globalObject, 'isPathForward', queryWrapper(this.isPath.bind(this, 0)));
+      interpreter.setProperty(globalObject, 'isPathRight', queryWrapper(this.isPath.bind(this, 1)));
+      interpreter.setProperty(globalObject, 'isPathLeft', queryWrapper(this.isPath.bind(this, 3)));
+      interpreter.setProperty(globalObject, 'notDone', queryWrapper(this.notDone));
 
       const highlightWrapper = (id: string) => {
         const realId = id ? id.replace('block_id_', '') : '';
@@ -110,9 +115,12 @@ export class MazeEngine implements IGameEngine {
     }
 
     this.highlightedBlockId = null;
-    let hasMoreCode = false;
+    this.executedAction = false;
+    let hasMoreCode = true;
+    let highlightedBlockId: string | null = null;
+    let steps = 0;
 
-    for (let i = 0; i < STEPS_PER_FRAME; i++) {
+    while (steps < STEPS_PER_FRAME && hasMoreCode && !this.executedAction) {
         try {
             hasMoreCode = this.interpreter.step();
         } catch (e) {
@@ -120,8 +128,15 @@ export class MazeEngine implements IGameEngine {
             this.currentState.isFinished = true;
             return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
         }
-        if (!hasMoreCode || this.highlightedBlockId) {
-            break;
+        steps++;
+
+        if (this.highlightedBlockId) {
+            if (highlightedBlockId === null) {
+                highlightedBlockId = this.highlightedBlockId;
+                this.highlightedBlockId = null;
+            } else {
+                break;
+            }
         }
     }
 
@@ -136,7 +151,7 @@ export class MazeEngine implements IGameEngine {
     return {
         done: this.currentState.isFinished,
         state: JSON.parse(JSON.stringify(this.currentState)),
-        highlightedBlockId: this.highlightedBlockId
+        highlightedBlockId: highlightedBlockId
     };
   }
 
