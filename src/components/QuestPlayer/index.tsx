@@ -287,7 +287,7 @@ export const QuestPlayer: React.FC = () => {
         {/* <<< THAY ĐỔI Ở ĐÂY: Gắn hàm xử lý vào sự kiện onResize của Panel */}
         <Panel minSize={30} onResize={handleBlocklyPanelResize}>
           <div className="blocklyColumn" ref={blocklyContainerRef}>
-            <div id="blocklyDiv" style={{ position: 'absolute', width: '100%', height: '100%' }} ref={blocklyDivRef}>
+            <div id="blocklyDiv" style={{ position: 'absolute', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }} ref={blocklyDivRef}>
               {questData && (
                 <EditorToolbar
                   supportedEditors={questData.supportedEditors || ['blockly']}
