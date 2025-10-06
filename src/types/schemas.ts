@@ -85,11 +85,23 @@ const pondConfigSchema = z.object({
     avatars: z.array(pondAvatarConfigSchema),
 });
 
-// SỬA ĐỔI: Gỡ bỏ `export`
+const coordinateSchema = z.object({ x: z.number(), y: z.number() });
+const lineSchema = z.object({ x0: z.number(), y0: z.number(), x1: z.number(), y1: z.number() });
+const birdConfigSchema = z.object({
+  type: z.literal('bird'),
+  start: coordinateSchema,
+  startAngle: z.number(),
+  worm: coordinateSchema.nullable(),
+  nest: coordinateSchema,
+  walls: z.array(lineSchema),
+});
+
+
 const gameConfigSchema = z.discriminatedUnion('type', [
   mazeConfigSchema,
   turtleConfigSchema,
   pondConfigSchema,
+  birdConfigSchema, // THÊM MỚI
 ]);
 
 const solutionConfigSchema = z.object({
@@ -100,8 +112,6 @@ const solutionConfigSchema = z.object({
   optimalBlocks: z.number().optional(),
   solutionMaxBlocks: z.number().optional(),
 });
-
-// --- The Master Quest Schema (Chỉ export cái này) ---
 
 export const questSchema = z.object({
   id: z.string(),
