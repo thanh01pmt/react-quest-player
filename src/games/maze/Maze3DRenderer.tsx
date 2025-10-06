@@ -11,6 +11,7 @@ import BlockComponent from './components/Block';
 
 interface IGameRenderer extends IGameRendererBase {
   cameraMode?: CameraMode;
+  onActionComplete?: () => void; // THÊM MỚI
 }
 
 const TILE_SIZE = 2;
@@ -30,7 +31,8 @@ const FinishMarker: React.FC<{ position: [number, number, number] }> = ({ positi
     );
 };
 
-const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotRef: React.RefObject<THREE.Group> }> = ({ gameConfig, gameState, robotRef }) => {
+// THÊM MỚI: Truyền onActionComplete xuống Scene
+const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotRef: React.RefObject<THREE.Group>; onActionComplete: () => void; }> = ({ gameConfig, gameState, robotRef, onActionComplete }) => {
   const robotPosition = useMemo(() => {
     const groundY = (gameState.player.y - 1) * TILE_SIZE;
     const surfaceY = groundY + TILE_SIZE / 2;
@@ -45,8 +47,7 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
 
   return (
     <group>
-      {/* SỬA LỖI: Luôn có gameConfig.blocks vì đã được chuẩn hóa */}
-      {gameConfig.blocks!.map((block, index) => (
+      {gameConfig.blocks?.map((block, index) => (
         <BlockComponent 
           key={index} 
           modelKey={block.modelKey} 
@@ -60,10 +61,9 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
 
       <FinishMarker 
         position={[
-          gameConfig.finish.x * TILE_SIZE,
+          gameConfig.finish.x * TILE_SIZE, 
           (gameConfig.finish.y - 1) * TILE_SIZE + TILE_SIZE / 2,
-          // SỬA LỖI: Luôn có gameConfig.finish.z vì đã được chuẩn hóa
-          gameConfig.finish.z! * TILE_SIZE
+          (gameConfig.finish.z ?? gameConfig.finish.y) * TILE_SIZE
         ]} 
       />
       
@@ -72,6 +72,7 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
         position={robotPosition} 
         direction={gameState.player.direction}
         animationName={gameState.player.pose || 'Idle'}
+        onTweenComplete={onActionComplete} // THÊM MỚI: Truyền callback xuống
       />
     </group>
   );
@@ -79,19 +80,17 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
 
 // --- Main Renderer Component ---
 
-export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMode = 'Follow' }) => {
+// THÊM MỚI: Nhận onActionComplete
+export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMode = 'Follow', onActionComplete = () => {} }) => {
     const robotRef = useRef<THREE.Group>(null);
     const mazeState = gameState as MazeGameState;
     
-    // LỚP TƯƠNG THÍCH (COMPATIBILITY LAYER)
     const normalizedConfig = useMemo((): MazeConfig => {
-      const config = gameConfig as MazeConfig;
-      if (config.map) {
-        // Đây là config 2D, cần chuyển đổi
+      if (gameConfig.type === 'maze' && gameConfig.map) {
         const blocks: Block[] = [];
-        for (let y = 0; y < config.map.length; y++) {
-          for (let x = 0; x < config.map[y].length; x++) {
-            const cell = config.map[y][x];
+        for (let y = 0; y < gameConfig.map.length; y++) {
+          for (let x = 0; x < gameConfig.map[y].length; x++) {
+            const cell = gameConfig.map[y][x];
             if (cell === SquareType.WALL) {
               blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
             } else if (cell !== 0) {
@@ -100,13 +99,12 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
           }
         }
         return {
-          ...config,
+          ...gameConfig,
           blocks: blocks,
-          finish: { ...config.finish, z: config.finish.y }, // Thêm z cho finish
+          finish: { ...gameConfig.finish, z: gameConfig.finish.y },
         };
       }
-      // Đây là config 3D, trả về trực tiếp
-      return config;
+      return gameConfig as MazeConfig;
     }, [gameConfig]);
 
 
@@ -131,7 +129,8 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
         
         <CameraRig targetRef={robotRef} mode={cameraMode} />
         
-        <Scene gameConfig={normalizedConfig} gameState={mazeState} robotRef={robotRef} />
+        {/* THÊM MỚI: Truyền onActionComplete vào Scene */}
+        <Scene gameConfig={normalizedConfig} gameState={mazeState} robotRef={robotRef} onActionComplete={onActionComplete} />
       </Canvas>
     );
 };

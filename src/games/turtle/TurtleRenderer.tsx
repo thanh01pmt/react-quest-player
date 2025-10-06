@@ -15,9 +15,10 @@ export interface TurtleRendererHandle {
   };
 }
 
-// Correctly define the props type using a type intersection
+// Mở rộng props để nhận onActionComplete
 type TurtleRendererProps = Parameters<IGameRenderer>[0] & {
   solutionCommands: DrawingCommand[] | null;
+  onActionComplete?: () => void;
 };
 
 const executeDrawingCommands = (ctx: CanvasRenderingContext2D, commands: DrawingCommand[]) => {
@@ -39,13 +40,18 @@ const executeDrawingCommands = (ctx: CanvasRenderingContext2D, commands: Drawing
 };
 
 export const TurtleRenderer = forwardRef<TurtleRendererHandle, TurtleRendererProps>(
-  ({ gameState, gameConfig, solutionCommands }, ref) => {
+  ({ gameState, gameConfig, solutionCommands, onActionComplete = () => {} }, ref) => {
     const state = gameState as TurtleGameState;
     const config = gameConfig as TurtleConfig;
 
     const displayRef = useRef<HTMLCanvasElement>(null);
     const answerRef = useRef<HTMLCanvasElement>(null);
     const scratchRef = useRef<HTMLCanvasElement>(null);
+
+    // THÊM MỚI: Gọi callback sau mỗi lần render để báo cho game loop tiếp tục
+    useEffect(() => {
+      onActionComplete();
+    }, [gameState, onActionComplete]);
 
     useImperativeHandle(ref, () => ({
       getCanvasData: () => {

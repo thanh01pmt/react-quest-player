@@ -1,6 +1,6 @@
 // src/games/maze/Maze2DRenderer.tsx
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import type { IGameRenderer, MazeConfig, Block } from '../../types';
 import type { MazeGameState, Direction } from './types';
 import './Maze.css';
@@ -50,7 +50,6 @@ const getTileStyle = (mapData: number[][], x: number, y: number): React.CSSPrope
   return { left: `-${left * SQUARE_SIZE}px`, top: `-${top * SQUARE_SIZE}px` };
 };
 
-// Hàm chuyển đổi 'blocks' sang 'map'
 const blocksToMap = (blocks: Block[], start: {x: number, z?: number}, finish: {x: number, z?: number}): number[][] => {
   let maxX = 0;
   let maxZ = 0;
@@ -59,18 +58,16 @@ const blocksToMap = (blocks: Block[], start: {x: number, z?: number}, finish: {x
     maxZ = Math.max(maxZ, block.position.z);
   }
 
-  // Khởi tạo map với các ô đường đi
   const map: number[][] = Array(maxZ + 1).fill(0).map(() => Array(maxX + 1).fill(SquareType.OPEN));
   
   for (const block of blocks) {
-    if (block.position.y === 0) { // Chỉ quan tâm đến các khối ở tầng trệt
+    if (block.position.y === 0) {
       if (block.modelKey.includes('wall')) {
         map[block.position.z][block.position.x] = SquareType.WALL;
       }
     }
   }
   
-  // Đánh dấu điểm bắt đầu và kết thúc (chỉ ở y=0)
   if (start.z !== undefined) map[start.z][start.x] = SquareType.START;
   if (finish.z !== undefined) map[finish.z][finish.x] = SquareType.FINISH;
 
@@ -96,22 +93,25 @@ const MazeMap = React.memo(({ mapData }: { mapData: number[][] }) => {
   );
 });
 
-export const Maze2DRenderer: IGameRenderer = ({ gameState, gameConfig }) => {
+export const Maze2DRenderer: IGameRenderer = ({ gameState, gameConfig, onActionComplete = () => {} }) => {
   const state = gameState as MazeGameState;
   const config = gameConfig as MazeConfig;
 
-  // LỚP TƯƠNG THÍCH (COMPATIBILITY LAYER)
+  // THÊM MỚI: Gọi callback sau mỗi lần render để báo cho game loop tiếp tục
+  useEffect(() => {
+    onActionComplete();
+  }, [gameState, onActionComplete]);
+
   const mapData = useMemo(() => {
     if (config.map) {
       return config.map;
     }
     if (config.blocks) {
-      // Chuẩn hóa tọa độ start/finish cho trường hợp 2D
       const startPos2D = { x: config.player.start.x, z: config.player.start.z ?? config.player.start.y };
       const finishPos2D = { x: config.finish.x, z: config.finish.z ?? config.finish.y };
       return blocksToMap(config.blocks, startPos2D, finishPos2D);
     }
-    return []; // Trả về mảng rỗng nếu không có dữ liệu
+    return [];
   }, [config]);
 
   if (!state || !config || mapData.length === 0) return null;
@@ -123,8 +123,6 @@ export const Maze2DRenderer: IGameRenderer = ({ gameState, gameConfig }) => {
     frame = DIRECTION_TO_FRAME_MAP[state.player.direction];
   }
 
-  // Đối với 2D renderer, chúng ta luôn dùng tọa độ x và z (từ PlayerState 3D)
-  // Logic cũ dùng y, nhưng giờ PlayerState đã được chuẩn hóa
   const pegmanX = state.player.x;
   const pegmanY = state.player.z;
 
@@ -134,7 +132,6 @@ export const Maze2DRenderer: IGameRenderer = ({ gameState, gameConfig }) => {
     backgroundPosition: `-${frame * PEGMAN_WIDTH}px 0`,
   };
   
-  // Tương tự, finish.z thay cho finish.y
   const finishStyle: React.CSSProperties = {
     left: `${config.finish.x * SQUARE_SIZE + (SQUARE_SIZE - FINISH_MARKER_WIDTH) / 2}px`,
     top: `${(config.finish.z ?? config.finish.y) * SQUARE_SIZE + (SQUARE_SIZE - FINISH_MARKER_HEIGHT) / 2 - 15}px`,

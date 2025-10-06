@@ -28,12 +28,13 @@ interface RobotCharacterProps {
   position: THREE.Vector3;
   direction: Direction;
   animationName: string;
+  onTweenComplete: () => void;
 }
 
 const TILE_SIZE = 2;
 
 export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
-  ({ position, direction, animationName }, ref) => {
+  ({ position, direction, animationName, onTweenComplete }, ref) => {
     const [effectiveAnimation, setEffectiveAnimation] = useState('Idle');
 
     const { scene, animations } = useGLTF(ROBOT_MODEL_PATH);
@@ -43,7 +44,7 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
     const targetPosition = useRef(new THREE.Vector3().copy(position));
     const startTime = useRef(0);
     const isTweening = useRef(false);
-    const tweenDuration = 1.0; // Adjust this value based on desired movement speed (in seconds)
+    const tweenDuration = 0.8;
 
     useEffect(() => {
       console.log('Available animations in draco-robot.glb:', animations.map(a => a.name));
@@ -65,8 +66,14 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
           activeAction.fadeOut(0.2);
         }
 
-        const clipDuration = newAction.getClip().duration;
-        newAction.timeScale = clipDuration / tweenDuration; // Adjust speed to match tween duration
+        // SỬA LỖI: Chỉ điều chỉnh timeScale cho animation 'Walking'
+        if (effectiveAnimation === 'Walking') {
+          const clipDuration = newAction.getClip().duration;
+          newAction.timeScale = clipDuration / tweenDuration;
+        } else {
+          // Các animation khác chạy ở tốc độ gốc
+          newAction.timeScale = 1;
+        }
 
         if (ONE_SHOT_ANIMATIONS.includes(effectiveAnimation)) {
             newAction.reset().setLoop(THREE.LoopOnce, 1).fadeIn(0.2).play();
@@ -80,6 +87,7 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
                         idleAction.reset().fadeIn(0.2).play();
                     }
                     mixer.removeEventListener('finished', onFinished);
+                    onTweenComplete();
                 }
             };
             mixer.addEventListener('finished', onFinished);
@@ -87,13 +95,15 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
             newAction.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.2).play();
         }
       }
-    }, [effectiveAnimation, actions, mixer]);
+    }, [effectiveAnimation, actions, mixer, onTweenComplete]);
 
     useEffect(() => {
       const group = (ref as React.RefObject<THREE.Group>).current;
       if (!group) return;
 
-      if (['Walking', 'Jumping'].includes(animationName) && !group.position.equals(position)) {
+      const isMoveAnimation = ['Walking', 'Jumping'].includes(animationName);
+
+      if (isMoveAnimation && !group.position.equals(position)) {
         currentPosition.current.copy(group.position);
         targetPosition.current.copy(position);
         startTime.current = performance.now() / 1000;
@@ -104,8 +114,11 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
         group.position.copy(position);
         isTweening.current = false;
         setEffectiveAnimation(animationName);
+        if (!isMoveAnimation) {
+          onTweenComplete();
+        }
       }
-    }, [position, animationName]);
+    }, [position, animationName, onTweenComplete]);
 
     useFrame((state, delta) => {
       const group = (ref as React.RefObject<THREE.Group>).current;
@@ -119,9 +132,11 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
       if (isTweening.current) {
         const time = performance.now() / 1000;
         let t = (time - startTime.current) / tweenDuration;
-        if (t > 1) {
+        
+        if (t >= 1) {
           t = 1;
           isTweening.current = false;
+          onTweenComplete();
           if (effectiveAnimation === 'Walking') {
             setEffectiveAnimation('Idle');
           }
