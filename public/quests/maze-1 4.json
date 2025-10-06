@@ -1,0 +1,85 @@
+{
+  "id": "maze-level-4",
+  "gameType": "maze",
+  "level": 4,
+  "titleKey": "Games.maze",
+  "descriptionKey": "Quest.maze.level4.description",
+  "translations": {
+    "en": {
+      "Quest.maze.level4.description": "This path has a repeating pattern. Can you solve it with a loop?"
+    },
+    "vi": {
+      "Quest.maze.level4.description": "Con đường này có một pattern lặp lại. Bạn có thể giải nó bằng một vòng lặp không?"
+    }
+  },
+  "blocklyConfig": {
+    "toolbox": {
+      "kind": "flyoutToolbox",
+      "contents": [
+        {
+          "kind": "block",
+          "type": "maze_moveForward"
+        },
+        {
+          "kind": "block", "type": "maze_turn", "fields": { "DIR": "turnLeft" }
+        },
+        {
+          "kind": "block", "type": "maze_turn", "fields": { "DIR": "turnRight" }
+        },
+        {
+          "kind": "block",
+          "type": "controls_repeat_ext",
+          "inputs": {
+            "TIMES": {
+              "shadow": {
+                "type": "math_number",
+                "fields": { "NUM": 5 }
+              }
+            }
+          }
+        },
+        {
+          "kind": "block",
+          "type": "maze_forever"
+        },
+        {
+          "kind": "block",
+          "type": "maze_if"
+        },
+        {
+          "kind": "block",
+          "type": "maze_ifElse"
+        }
+      ]
+    },
+    "maxBlocks": 16
+  },
+  "gameConfig": {
+    "type": "maze",
+    "map": [
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 2, 1, 1, 1, 1, 1],
+      [0, 0, 0, 0, 0, 0, 0, 1],
+      [0, 0, 3, 1, 1, 1, 1, 1],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0]
+    ],
+    "player": {
+      "start": { "x": 2, "y": 1, "direction": 1 },
+      "skinId": 0
+    },
+    "finish": { "x": 2, "y": 3 }
+  },
+  "solution": {
+    "type": "reach_target",
+    "optimalBlocks": 4,
+    "solutionMaxBlocks": 12
+  },
+  "sounds": {
+    "win": "/assets/maze/win.mp3",
+    "fail": "/assets/maze/fail_pegman.mp3"
+  },
+  "backgroundMusic": "/assets/music/bg_music.mp3"
+}

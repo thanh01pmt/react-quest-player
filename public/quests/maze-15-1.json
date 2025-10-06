@@ -1,0 +1,248 @@
+{
+  "id": "maze-level-15-1",
+  "gameType": "maze",
+  "level": 15,
+  "titleKey": "Games.maze",
+  "descriptionKey": "Quest.maze.level15.1.description",
+  "translations": {
+    "en": {
+      "Quest.maze.level15.1.description": "This snake-like maze is unpredictable. You'll need a universal algorithm that can decide when to move forward and when to turn."
+    },
+    "vi": {
+      "Quest.maze.level15.1.description": "Mê cung hình con rắn này rất khó đoán. Bạn sẽ cần một thuật toán phổ quát có thể tự quyết định khi nào đi thẳng và khi nào cần rẽ."
+    }
+  },
+  "blocklyConfig": {
+    "toolbox": {
+      "kind": "flyoutToolbox",
+      "contents": [
+        {
+          "kind": "block",
+          "type": "maze_moveForward"
+        },
+        {
+          "kind": "block",
+          "type": "maze_turn",
+          "fields": {
+            "DIR": "turnLeft"
+          }
+        },
+        {
+          "kind": "block",
+          "type": "maze_turn",
+          "fields": {
+            "DIR": "turnRight"
+          }
+        },
+        {
+          "kind": "block",
+          "type": "maze_forever"
+        },
+        {
+          "kind": "block",
+          "type": "maze_if"
+        },
+        {
+          "kind": "block",
+          "type": "maze_ifElse"
+        }
+      ]
+    },
+    "maxBlocks": 53
+  },
+  "gameConfig": {
+    "type": "maze",
+    "map": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0
+      ]
+    ],
+    "player": {
+      "start": {
+        "x": 1,
+        "y": 1,
+        "direction": 1
+      },
+      "skinId": 0
+    },
+    "finish": {
+      "x": 10,
+      "y": 2
+    }
+  },
+  "solution": {
+    "type": "reach_target",
+    "optimalBlocks": 7,
+    "solutionMaxBlocks": 48
+  },
+  "sounds": {
+    "win": "/assets/maze/win.mp3",
+    "fail": "/assets/maze/fail_pegman.mp3"
+  },
+  "backgroundMusic": "/assets/music/bg_music.mp3"
+}

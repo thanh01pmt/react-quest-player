@@ -1,0 +1,152 @@
+{
+  "id": "maze-level-3-2",
+  "gameType": "maze",
+  "level": 3,
+  "titleKey": "Games.maze",
+  "descriptionKey": "Quest.maze.level3.2.description",
+  "translations": {
+    "en": {
+      "Quest.maze.level3.2.description": "This path is quite long. Is there a block that can repeat an action until you reach the goal?"
+    },
+    "vi": {
+      "Quest.maze.level3.2.description": "Con đường này khá dài. Có khối lệnh nào có thể lặp lại một hành động cho đến khi bạn tới đích không?"
+    }
+  },
+  "blocklyConfig": {
+    "toolbox": {
+      "kind": "flyoutToolbox",
+      "contents": [
+        {
+          "kind": "block",
+          "type": "maze_moveForward"
+        },
+        {
+          "kind": "block",
+          "type": "maze_turn",
+          "fields": {
+            "DIR": "turnLeft"
+          }
+        },
+        {
+          "kind": "block",
+          "type": "maze_turn",
+          "fields": {
+            "DIR": "turnRight"
+          }
+        },
+        {
+          "kind": "block",
+          "type": "maze_forever"
+        }
+      ]
+    },
+    "maxBlocks": 5
+  },
+  "gameConfig": {
+    "type": "maze",
+    "map": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "player": {
+      "start": {
+        "x": 3,
+        "y": 1,
+        "direction": 1
+      },
+      "skinId": 0
+    },
+    "finish": {
+      "x": 3,
+      "y": 6
+    }
+  },
+  "solution": {
+    "type": "reach_target",
+    "optimalBlocks": 3,
+    "solutionMaxBlocks": 8
+  },
+  "sounds": {
+    "win": "/assets/maze/win.mp3",
+    "fail": "/assets/maze/fail_pegman.mp3"
+  },
+  "backgroundMusic": "/assets/music/bg_music.mp3"
+}
