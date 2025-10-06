@@ -16,7 +16,6 @@ import { MonacoEditor } from '../MonacoEditor';
 import { EditorToolbar } from '../EditorToolbar';
 import { DocumentationPanel } from '../DocumentationPanel';
 import { BackgroundMusic } from '../BackgroundMusic';
-// import { SettingsPanel } from '../SettingsPanel';
 import { countLinesOfCode } from '../../games/codeUtils';
 import { usePrefersColorScheme } from '../../hooks/usePrefersColorScheme';
 import { useSoundManager } from '../../hooks/useSoundManager';
@@ -29,14 +28,15 @@ import type { PondGameState } from '../../games/pond/types';
 import '../../App.css';
 import './QuestPlayer.css';
 
-type ColorSchemeMode = 'auto' | 'light' | 'dark';
-type ToolboxMode = 'default' | 'simple' | 'test';
 type BlocklyThemeName = 'zelos' | 'classic';
 
 interface DialogState {
   isOpen: boolean;
   title: string;
   message: string;
+  stars?: number;
+  optimalBlocks?: number;
+  code?: string;
 }
 
 export const QuestPlayer: React.FC = () => {
@@ -48,19 +48,13 @@ export const QuestPlayer: React.FC = () => {
   const [importError, setImportError] = useState<string>('');
   const [dialogState, setDialogState] = useState<DialogState>({ isOpen: false, title: '', message: '' });
   const [isDocsOpen, setIsDocsOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Blockly specific states
   const [blockCount, setBlockCount] = useState(0);
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
   
   // Settings states
-  const [renderer, setRenderer] = useState<'geras' | 'zelos'>('zelos');
-  const [blocklyThemeName, setBlocklyThemeName] = useState<BlocklyThemeName>('zelos');
-  const [gridEnabled, setGridEnabled] = useState(true);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
-  const [colorSchemeMode, setColorSchemeMode] = useState<ColorSchemeMode>('auto');
-  const [toolboxMode, setToolboxMode] = useState<ToolboxMode>('default');
   const [cameraMode, setCameraMode] = useState<CameraMode>('Follow');
 
   // Execution states
@@ -69,12 +63,8 @@ export const QuestPlayer: React.FC = () => {
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const rendererRef = useRef<TurtleRendererHandle>(null);
 
-  const effectiveColorScheme = useMemo(() => {
-    if (colorSchemeMode === 'auto') {
-      return prefersColorScheme;
-    }
-    return colorSchemeMode;
-  }, [colorSchemeMode, prefersColorScheme]);
+  // NOTE: colorSchemeMode and related states were removed, using prefersColorScheme directly for now.
+  const effectiveColorScheme = prefersColorScheme;
 
   useEffect(() => {
     document.body.classList.remove('theme-light', 'theme-dark');
@@ -86,17 +76,44 @@ export const QuestPlayer: React.FC = () => {
   const { playSound } = useSoundManager(questData?.sounds, soundsEnabled);
   
   const handleGameEnd = useCallback(({ isSuccess, finalState }: { isSuccess: boolean, finalState: GameState }) => {
-    if (isSuccess) {
+    if (isSuccess && questData) {
       const code = currentEditor === 'blockly' && workspaceRef.current 
         ? javascriptGenerator.workspaceToCode(workspaceRef.current) 
         : aceCode;
-      const lines = countLinesOfCode(code);
-      let message = lines === 1 ? t('Games.linesOfCode1') : t('Games.linesOfCode2').replace('%1', String(lines));
-      setDialogState({ isOpen: true, title: t('Games.dialogCongratulations'), message });
+
+      const usedUnits = currentEditor === 'blockly' && workspaceRef.current
+        ? workspaceRef.current.getAllBlocks(false).filter(b => b.isDeletable() && b.isEditable() && !b.getInheritedDisabled()).length
+        : countLinesOfCode(code);
+
+      const unitLabel = currentEditor === 'blockly' ? 'blockCount' : 'lineCount';
+      
+      const { optimalBlocks, solutionMaxBlocks } = questData.solution;
+      let stars = 1;
+      if (currentEditor === 'blockly' && optimalBlocks !== undefined) {
+        if (usedUnits <= optimalBlocks) {
+          stars = 3;
+        } else if (solutionMaxBlocks !== undefined && usedUnits <= solutionMaxBlocks) {
+          stars = 2;
+        }
+      }
+
+      setDialogState({
+        isOpen: true,
+        title: t('Games.dialogCongratulations'),
+        message: t('Games.dialogGoodJob', { [unitLabel]: usedUnits }),
+        stars,
+        optimalBlocks,
+        code,
+      });
+
     } else {
-      setDialogState({ isOpen: true, title: t('Games.dialogTryAgain'), message: getFailureMessage(t, (finalState as any).result) });
+      setDialogState({ 
+        isOpen: true, 
+        title: t('Games.dialogTryAgain'), 
+        message: getFailureMessage(t, (finalState as any).result) 
+      });
     }
-  }, [t, aceCode, currentEditor]);
+  }, [t, questData, currentEditor, aceCode]);
   
   const { 
     currentGameState, 
@@ -109,27 +126,22 @@ export const QuestPlayer: React.FC = () => {
     handleActionComplete 
   } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound, setHighlightedBlockId);
 
-  // TÍCH HỢP i18n: Nạp bản dịch từ quest.json
   useLayoutEffect(() => {
     if (questData?.translations) {
       const translations = questData.translations;
       Object.keys(translations).forEach((langCode) => {
         i18n.addResourceBundle(langCode, 'translation', translations[langCode], true, true);
       });
-      // Force i18next to re-evaluate translations
       i18n.changeLanguage(i18n.language);
     }
   }, [questData, i18n]);
-
 
   useEffect(() => {
     if (questLoaderError) setImportError(questLoaderError);
   }, [questLoaderError]);
   
   useEffect(() => {
-    if (engineRef.current) {
-        resetGame();
-    }
+    if (engineRef.current) resetGame();
   }, [engineRef.current, resetGame]);
 
   useEffect(() => {
@@ -157,13 +169,11 @@ export const QuestPlayer: React.FC = () => {
     workspaceRef.current?.highlightBlock(highlightedBlockId);
   }, [highlightedBlockId]);
 
-  const blocklyTheme = useMemo(() => createBlocklyTheme(blocklyThemeName, effectiveColorScheme), [blocklyThemeName, effectiveColorScheme]);
+  const blocklyTheme = useMemo(() => createBlocklyTheme('zelos' as BlocklyThemeName, effectiveColorScheme), [effectiveColorScheme]);
   
   const handleBlocklyPanelResize = useCallback(() => {
     setTimeout(() => {
-      if (workspaceRef.current) {
-        Blockly.svgResize(workspaceRef.current);
-      }
+      if (workspaceRef.current) Blockly.svgResize(workspaceRef.current);
     }, 0);
   }, []);
 
@@ -199,29 +209,41 @@ export const QuestPlayer: React.FC = () => {
 
   const workspaceConfiguration = useMemo(() => ({
     theme: blocklyTheme,
-    renderer: renderer,
+    renderer: 'zelos',
     trashcan: true,
     zoom: { controls: true, wheel: false, startScale: 1.0, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 },
-    grid: { 
-        spacing: 20, 
-        length: 3, 
-        colour: "#ccc", 
-        snap: gridEnabled 
-    },
+    grid: { spacing: 20, length: 3, colour: "#ccc", snap: true },
     sounds: soundsEnabled,
-  }), [blocklyTheme, renderer, gridEnabled, soundsEnabled]);
+  }), [blocklyTheme, soundsEnabled]);
 
   return (
     <>
       <Dialog isOpen={dialogState.isOpen} title={dialogState.title} onClose={() => setDialogState({ ...dialogState, isOpen: false })}>
-        <p>{dialogState.message}</p>
+        {dialogState.stars !== undefined && dialogState.stars > 0 ? (
+          <div className="completion-dialog-content">
+            <div className="stars-header">{t('Games.dialogStarsHeader')}</div>
+            <div className="stars-container">
+              {[...Array(3)].map((_, i) => (
+                <i key={i} className={`star ${i < (dialogState.stars || 0) ? 'fas fa-star' : 'far fa-star'}`}></i>
+              ))}
+            </div>
+            <p className="completion-message">{dialogState.message}</p>
+            {dialogState.stars < 3 && dialogState.optimalBlocks && (
+              <p className="optimal-solution-info">{t('Games.dialogOptimalSolution', { optimalBlocks: dialogState.optimalBlocks })}</p>
+            )}
+            {dialogState.stars === 3 && <p className="excellent-solution">{t('Games.dialogExcellentSolution')}</p>}
+            {dialogState.code && (
+              <details className="code-details">
+                <summary>{t('Games.dialogShowCode')}</summary>
+                <pre><code>{dialogState.code}</code></pre>
+              </details>
+            )}
+          </div>
+        ) : (
+          <p>{dialogState.message}</p>
+        )}
       </Dialog>
-      {/* TÍCH HỢP DocumentationPanel */}
-      <DocumentationPanel 
-        isOpen={isDocsOpen} 
-        onClose={() => setIsDocsOpen(false)} 
-        gameType={questData?.gameType}
-      />
+      <DocumentationPanel isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} gameType={questData?.gameType} />
       <BackgroundMusic src={questData?.backgroundMusic} play={playerStatus === 'running' && soundsEnabled} />
       
       <PanelGroup direction="horizontal" className="appContainer" autoSaveId="quest-player-panels">
@@ -251,8 +273,6 @@ export const QuestPlayer: React.FC = () => {
                             )}
 
                             {playerStatus !== 'idle' && <button className="primaryButton" onClick={resetGame}>Reset</button>}
-                            
-                            {/* Nút Pond documentation đã bị xóa, chức năng được tích hợp vào nút Help chung */}
                         </>
                         )}
                     </div>
@@ -304,7 +324,6 @@ export const QuestPlayer: React.FC = () => {
         <Panel minSize={30} onResize={handleBlocklyPanelResize}>
             <div className="blocklyColumn">
                 {questData && (
-                    // TÍCH HỢP EditorToolbar MỚI
                     <EditorToolbar
                       supportedEditors={questData.supportedEditors || ['blockly']}
                       currentEditor={currentEditor}
@@ -322,7 +341,7 @@ export const QuestPlayer: React.FC = () => {
                     <>
                         {processedToolbox && questData?.blocklyConfig && (
                             <BlocklyWorkspace
-                              key={`${questData.id}-${renderer}-${blocklyThemeName}-${effectiveColorScheme}-${toolboxMode}`}
+                              key={`${questData.id}-${effectiveColorScheme}`}
                               className="fill-container"
                               toolboxConfiguration={processedToolbox}
                               initialXml={questData.blocklyConfig.startBlocks}
@@ -333,8 +352,6 @@ export const QuestPlayer: React.FC = () => {
                               }}
                             />
                         )}
-                        {/* Tạm thời vô hiệu hóa SettingsPanel để tích hợp lại sau */}
-                        {/* <SettingsPanel ... /> */}
                     </>
                     )
                 ) : (

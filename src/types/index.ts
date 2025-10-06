@@ -130,6 +130,9 @@ export interface SolutionConfig {
   pixelTolerance?: number;
   solutionBlocks?: string;
   solutionScript?: string;
+  // THÊM MỚI
+  optimalBlocks?: number;
+  solutionMaxBlocks?: number;
 }
 
 // =================================================================
@@ -147,7 +150,7 @@ export type StepResult = {
 } | null;
 
 export interface IGameEngine {
-  readonly gameType: string; // THÊM MỚI
+  readonly gameType: string;
   reset?(): void;
   getInitialState(): GameState;
   

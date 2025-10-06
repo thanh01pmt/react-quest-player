@@ -2,24 +2,25 @@
 
 import { z } from 'zod';
 
-// Schema for the Blockly toolbox (JSON format)
+// SỬA ĐỔI: Gỡ bỏ `export` vì chỉ dùng nội bộ
 const toolboxJsonSchema = z.object({
   kind: z.enum(['flyoutToolbox', 'categoryToolbox']),
   contents: z.array(z.any()),
 });
 
-// Schema for Blockly configuration
+// SỬA ĐỔI: Gỡ bỏ `export`
 const blocklyConfigSchema = z.object({
   toolbox: toolboxJsonSchema,
   maxBlocks: z.number().optional(),
   startBlocks: z.string().optional(),
 });
 
+// SỬA ĐỔI: Gỡ bỏ `export`
 const monacoConfigSchema = z.object({
     initialCode: z.string(),
 });
 
-// --- Game-specific Config Schemas ---
+// --- Game-specific Config Schemas (giữ private) ---
 
 const position3DSchema = z.object({
   x: z.number(),
@@ -32,43 +33,32 @@ const blockSchema = z.object({
   position: position3DSchema,
 });
 
-// Sửa đổi MazeConfig để linh hoạt hơn
 const mazeConfigSchema = z.object({
   type: z.literal('maze'),
   renderer: z.enum(['2d', '3d']).optional(),
-  
-  // Cả hai đều là optional
   map: z.array(z.array(z.number())).optional(),
   blocks: z.array(blockSchema).optional(),
-
   player: z.object({
     start: z.object({
       x: z.number(),
       y: z.number(),
-      z: z.number().optional(), // z là optional cho 2D
+      z: z.number().optional(),
       direction: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
     }),
   }),
   finish: z.object({
     x: z.number(),
     y: z.number(),
-    z: z.number().optional(), // z là optional cho 2D
+    z: z.number().optional(),
   }),
 }).superRefine((data, ctx) => {
   if (!data.map && !data.blocks) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Maze config must have either 'map' or 'blocks'",
-    });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Maze config must have either 'map' or 'blocks'" });
   }
   if (data.map && data.blocks) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Maze config cannot have both 'map' and 'blocks'",
-    });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Maze config cannot have both 'map' and 'blocks'" });
   }
 });
-
 
 const turtleConfigSchema = z.object({
   type: z.literal('turtle'),
@@ -95,6 +85,7 @@ const pondConfigSchema = z.object({
     avatars: z.array(pondAvatarConfigSchema),
 });
 
+// SỬA ĐỔI: Gỡ bỏ `export`
 const gameConfigSchema = z.discriminatedUnion('type', [
   mazeConfigSchema,
   turtleConfigSchema,
@@ -106,10 +97,11 @@ const solutionConfigSchema = z.object({
   pixelTolerance: z.number().optional(),
   solutionBlocks: z.string().optional(),
   solutionScript: z.string().optional(),
+  optimalBlocks: z.number().optional(),
+  solutionMaxBlocks: z.number().optional(),
 });
 
-
-// --- The Master Quest Schema ---
+// --- The Master Quest Schema (Chỉ export cái này) ---
 
 export const questSchema = z.object({
   id: z.string(),
