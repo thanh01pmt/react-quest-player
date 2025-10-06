@@ -4,9 +4,6 @@ import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
 import i18n from '../../i18n';
 
-/**
- * Construct custom maze block types. Called from the GameBlockManager.
- */
 export function init() {
   Blockly.Msg['CONTROLS_REPEAT_TITLE'] = i18n.t('Controls.repeatTitle', 'repeat %1 times');
   Blockly.Msg['CONTROLS_REPEAT_INPUT_DO'] = i18n.t('Controls.repeatInputDo', 'do');
@@ -19,9 +16,11 @@ export function init() {
   Blockly.Msg['DELETE_X_BLOCKS'] = i18n.t('DELETE_X_BLOCKS', 'Delete %1 Blocks');
   Blockly.Msg['HELP'] = i18n.t('Games.help', 'Help');
 
-  const MOVEMENT_HUE = 290;
-  const LOOPS_HUE = 120;
-  const LOGIC_HUE = 210;
+  // SỬA ĐỔI: Sử dụng mã màu HEX
+  const MOVEMENT_COLOUR = '#CF63CF'; // Tương đương HUE 290
+  const LOOPS_COLOUR = '#5BA55B';    // Tương đương HUE 120
+  const LOGIC_COLOUR = '#5B80A5';    // Tương đương HUE 210
+
   const LEFT_TURN = ' ↺';
   const RIGHT_TURN = ' ↻';
 
@@ -57,30 +56,26 @@ export function init() {
       "message0": i18n.t('Maze.moveForward'),
       "previousStatement": null,
       "nextStatement": null,
-      "colour": MOVEMENT_HUE,
+      "colour": MOVEMENT_COLOUR, // Sử dụng biến màu mới
       "tooltip": i18n.t('Maze.moveForwardTooltip'),
       "helpUrl": helpClickHandler,
     },
     {
       "type": "maze_jump",
-      "message0": "jump", // TODO: Thêm i18n key 'Maze.jump'
+      "message0": "jump",
       "previousStatement": null,
       "nextStatement": null,
-      "colour": MOVEMENT_HUE,
-      "tooltip": "Jumps forward and up one block.", // TODO: Thêm i18n key
+      "colour": MOVEMENT_COLOUR, // Sử dụng biến màu mới
+      "tooltip": "Jumps forward and up one block.",
       "helpUrl": helpClickHandler,
     },
     {
       "type": "maze_turn",
       "message0": "%1",
-      "args0": [{
-        "type": "field_dropdown",
-        "name": "DIR",
-        "options": TURN_DIRECTIONS,
-      }],
+      "args0": [{ "type": "field_dropdown", "name": "DIR", "options": TURN_DIRECTIONS, }],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": MOVEMENT_HUE,
+      "colour": MOVEMENT_COLOUR, // Sử dụng biến màu mới
       "tooltip": i18n.t('Maze.turnTooltip'),
       "extensions": ["maze_turn_arrows"],
       "helpUrl": helpClickHandler,
@@ -95,7 +90,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": LOGIC_HUE,
+      "colour": LOGIC_COLOUR, // Sử dụng biến màu mới
       "tooltip": i18n.t('Maze.ifTooltip'),
       "helpUrl": helpClickHandler,
     },
@@ -110,7 +105,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": LOGIC_HUE,
+      "colour": LOGIC_COLOUR, // Sử dụng biến màu mới
       "tooltip": i18n.t('Maze.ifelseTooltip'),
       "helpUrl": helpClickHandler,
     },
@@ -123,7 +118,7 @@ export function init() {
         { "type": "input_statement", "name": "DO" }
       ],
       "previousStatement": null,
-      "colour": LOOPS_HUE,
+      "colour": LOOPS_COLOUR, // Sử dụng biến màu mới
       "tooltip": i18n.t('Maze.whileTooltip'),
       "helpUrl": helpClickHandler,
     },

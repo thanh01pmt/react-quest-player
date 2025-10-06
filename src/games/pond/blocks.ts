@@ -10,7 +10,8 @@ interface PondMathNumberBlock extends Blockly.Block {
 }
 
 export function init() {
-  const POND_HUE = 290;
+  // SỬA ĐỔI: Sử dụng mã màu HEX
+  const POND_COLOUR = '#CF63CF'; // Tương đương HUE 290
 
   Blockly.defineBlocksWithJsonArray([
     {
@@ -21,7 +22,7 @@ export function init() {
       ],
       "inputsInline": true,
       "output": "Number",
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.scanTooltip'),
     },
     {
@@ -34,7 +35,7 @@ export function init() {
       "inputsInline": true,
       "previousStatement": null,
       "nextStatement": null,
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.cannonTooltip'),
     },
     {
@@ -46,7 +47,7 @@ export function init() {
       "inputsInline": true,
       "previousStatement": null,
       "nextStatement": null,
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.swimTooltip'),
     },
     {
@@ -54,35 +55,35 @@ export function init() {
       "message0": "stop();",
       "previousStatement": null,
       "nextStatement": null,
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.stopTooltip'),
     },
     {
       "type": "pond_health",
       "message0": "health()",
       "output": "Number",
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.healthTooltip'),
     },
     {
       "type": "pond_speed",
       "message0": "speed()",
       "output": "Number",
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.speedTooltip'),
     },
     {
       "type": "pond_getX",
       "message0": "getX()",
       "output": "Number",
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.locXTooltip'),
     },
     {
       "type": "pond_getY",
       "message0": "getY()",
       "output": "Number",
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.locYTooltip'),
     },
     {
@@ -94,7 +95,7 @@ export function init() {
       "inputsInline": true,
       "previousStatement": null,
       "nextStatement": null,
-      "colour": POND_HUE,
+      "colour": POND_COLOUR,
       "tooltip": i18n.t('Pond.logTooltip'),
     },
     {
@@ -179,7 +180,7 @@ export function init() {
 
   javascriptGenerator.forBlock['pond_scan'] = function(block: Blockly.Block) {
     const degree = javascriptGenerator.valueToCode(block, 'DEGREE', Order.NONE) || '0';
-    const code = `scan(${degree}, 'block_id_${block.id}')`; // Truyền ID vào hàm
+    const code = `scan(${degree}, 'block_id_${block.id}')`;
     return [code, Order.FUNCTION_CALL];
   };
 

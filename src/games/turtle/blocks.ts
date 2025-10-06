@@ -5,7 +5,9 @@ import { javascriptGenerator, Order } from 'blockly/javascript';
 import i18n from '../../i18n';
 
 export function init() {
-  const HUE = 160;
+  // SỬA ĐỔI: Sử dụng mã màu HEX
+  const TURTLE_COLOUR = '#5B995B'; // Tương đương HUE 160
+  
   const LEFT_TURN = ' ↺';
   const RIGHT_TURN = ' ↻';
 
@@ -37,7 +39,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.moveTooltip'),
     },
     {
@@ -49,7 +51,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.moveTooltip'),
     },
     {
@@ -61,7 +63,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.turnTooltip'),
       "extensions": ["turtle_turn_arrows"],
     },
@@ -74,7 +76,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.turnTooltip'),
       "extensions": ["turtle_turn_arrows"],
     },
@@ -84,7 +86,7 @@ export function init() {
       "args0": [{ "type": "input_value", "name": "WIDTH", "check": "Number" }],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.widthTooltip'),
     },
     {
@@ -96,7 +98,7 @@ export function init() {
       }],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.penTooltip'),
     },
     {
@@ -105,7 +107,7 @@ export function init() {
       "args0": [{ "type": "input_value", "name": "COLOUR", "check": "Colour" }],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": "%{BKY_COLOUR_HUE}",
+      "colour": "%{BKY_COLOUR_HUE}", // Khối màu sắc vẫn dùng HUE chuẩn của Blockly
       "tooltip": i18n.t('Turtle.colourTooltip'),
     },
     {
@@ -126,7 +128,7 @@ export function init() {
       }],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.turtleVisibilityTooltip'),
     },
     {
@@ -135,7 +137,7 @@ export function init() {
       "args0": [{ "type": "input_value", "name": "TEXT" }],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.printTooltip'),
     },
     {
@@ -150,7 +152,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": HUE,
+      "colour": TURTLE_COLOUR,
       "tooltip": i18n.t('Turtle.fontTooltip'),
     },
     {
@@ -168,7 +170,6 @@ export function init() {
     },
   ]);
 
-  // SỬA ĐỔI: Thêm block.id vào các lệnh gọi hàm
   javascriptGenerator.forBlock['turtle_move'] = function(block: Blockly.Block) {
     const value = javascriptGenerator.valueToCode(block, 'VALUE', Order.NONE) || '0';
     return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;

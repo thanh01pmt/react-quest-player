@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { questSchema } from '../../types/schemas';
 import type { Quest } from '../../types';
+import './QuestImporter.css'; // Sẽ được tạo ở bước sau
 
 interface QuestImporterProps {
   onQuestLoad: (quest: Quest) => void;
@@ -19,7 +20,7 @@ export const QuestImporter: React.FC<QuestImporterProps> = ({ onQuestLoad, onErr
     }
 
     setIsLoading(true);
-    onError(''); // Clear previous errors
+    onError('');
 
     const reader = new FileReader();
 
@@ -31,23 +32,21 @@ export const QuestImporter: React.FC<QuestImporterProps> = ({ onQuestLoad, onErr
         }
 
         const jsonData = JSON.parse(text);
-
-        // Validate the JSON data against our Zod schema
         const validationResult = questSchema.safeParse(jsonData);
 
         if (validationResult.success) {
-          // If validation is successful, pass the data to the parent
           onQuestLoad(validationResult.data as Quest);
         } else {
-          // If validation fails, report the error
+          // SỬA ĐỔI: Báo lỗi chi tiết
+          const firstError = validationResult.error.issues[0];
+          const errorMessage = `Invalid Quest file: ${firstError.message} at path '${firstError.path.join('.')}'.`;
           console.error('Zod validation error:', validationResult.error.flatten());
-          throw new Error('Invalid Quest file format.');
+          throw new Error(errorMessage);
         }
       } catch (error: any) {
         onError(error.message || 'An unknown error occurred during file processing.');
       } finally {
         setIsLoading(false);
-        // Reset the input value to allow re-uploading the same file
         event.target.value = '';
       }
     };
@@ -62,15 +61,18 @@ export const QuestImporter: React.FC<QuestImporterProps> = ({ onQuestLoad, onErr
   };
 
   return (
-    <div>
+    <div className="quest-importer-wrapper">
+      <label htmlFor="quest-importer-input" className="custom-file-upload">
+        Choose File
+      </label>
       <input
-        id="quest-importer"
+        id="quest-importer-input"
         type="file"
         accept=".json"
         onChange={handleFileChange}
         disabled={isLoading}
       />
-      {isLoading && <p>Loading and validating...</p>}
+      {isLoading && <p>Loading...</p>}
     </div>
   );
 };
