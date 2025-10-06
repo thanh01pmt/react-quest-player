@@ -16,6 +16,7 @@ import { MonacoEditor } from '../MonacoEditor';
 import { EditorToolbar } from '../EditorToolbar';
 import { DocumentationPanel } from '../DocumentationPanel';
 import { BackgroundMusic } from '../BackgroundMusic';
+import { SettingsPanel } from '../SettingsPanel';
 import { countLinesOfCode } from '../../games/codeUtils';
 import { usePrefersColorScheme } from '../../hooks/usePrefersColorScheme';
 import { useSoundManager } from '../../hooks/useSoundManager';
@@ -28,6 +29,8 @@ import type { PondGameState } from '../../games/pond/types';
 import '../../App.css';
 import './QuestPlayer.css';
 
+type ColorSchemeMode = 'auto' | 'light' | 'dark';
+type ToolboxMode = 'default' | 'simple' | 'test';
 type BlocklyThemeName = 'zelos' | 'classic';
 
 interface DialogState {
@@ -43,28 +46,32 @@ export const QuestPlayer: React.FC = () => {
   const { t, i18n } = useTranslation();
   const prefersColorScheme = usePrefersColorScheme();
 
-  // Quest and UI states
   const [questData, setQuestData] = useState<Quest | null>(null);
   const [importError, setImportError] = useState<string>('');
   const [dialogState, setDialogState] = useState<DialogState>({ isOpen: false, title: '', message: '' });
   const [isDocsOpen, setIsDocsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Blockly specific states
   const [blockCount, setBlockCount] = useState(0);
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
   
-  // Settings states
+  const [renderer, setRenderer] = useState<'geras' | 'zelos'>('zelos');
+  const [blocklyThemeName, setBlocklyThemeName] = useState<BlocklyThemeName>('zelos');
+  const [gridEnabled, setGridEnabled] = useState(true);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
+  const [colorSchemeMode, setColorSchemeMode] = useState<ColorSchemeMode>('auto');
+  const [toolboxMode, setToolboxMode] = useState<ToolboxMode>('default');
   const [cameraMode, setCameraMode] = useState<CameraMode>('Follow');
 
-  // Execution states
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('run');
 
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const rendererRef = useRef<TurtleRendererHandle>(null);
 
-  // NOTE: colorSchemeMode and related states were removed, using prefersColorScheme directly for now.
-  const effectiveColorScheme = prefersColorScheme;
+  const effectiveColorScheme = useMemo(() => {
+    if (colorSchemeMode === 'auto') return prefersColorScheme;
+    return colorSchemeMode;
+  }, [colorSchemeMode, prefersColorScheme]);
 
   useEffect(() => {
     document.body.classList.remove('theme-light', 'theme-dark');
@@ -169,7 +176,7 @@ export const QuestPlayer: React.FC = () => {
     workspaceRef.current?.highlightBlock(highlightedBlockId);
   }, [highlightedBlockId]);
 
-  const blocklyTheme = useMemo(() => createBlocklyTheme('zelos' as BlocklyThemeName, effectiveColorScheme), [effectiveColorScheme]);
+  const blocklyTheme = useMemo(() => createBlocklyTheme(blocklyThemeName, effectiveColorScheme), [blocklyThemeName, effectiveColorScheme]);
   
   const handleBlocklyPanelResize = useCallback(() => {
     setTimeout(() => {
@@ -209,12 +216,12 @@ export const QuestPlayer: React.FC = () => {
 
   const workspaceConfiguration = useMemo(() => ({
     theme: blocklyTheme,
-    renderer: 'zelos',
+    renderer: renderer,
     trashcan: true,
     zoom: { controls: true, wheel: false, startScale: 1.0, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 },
-    grid: { spacing: 20, length: 3, colour: "#ccc", snap: true },
+    grid: { spacing: 20, length: 3, colour: "#ccc", snap: gridEnabled },
     sounds: soundsEnabled,
-  }), [blocklyTheme, soundsEnabled]);
+  }), [blocklyTheme, renderer, gridEnabled, soundsEnabled]);
 
   return (
     <>
@@ -329,6 +336,7 @@ export const QuestPlayer: React.FC = () => {
                       currentEditor={currentEditor}
                       onEditorChange={handleEditorChange}
                       onHelpClick={() => setIsDocsOpen(true)}
+                      onToggleSettings={() => setIsSettingsOpen(!isSettingsOpen)} // THÊM MỚI
                     />
                 )}
                 {questData && GameRenderer ? (
@@ -341,7 +349,7 @@ export const QuestPlayer: React.FC = () => {
                     <>
                         {processedToolbox && questData?.blocklyConfig && (
                             <BlocklyWorkspace
-                              key={`${questData.id}-${effectiveColorScheme}`}
+                              key={`${questData.id}-${renderer}-${blocklyThemeName}-${effectiveColorScheme}-${toolboxMode}`}
                               className="fill-container"
                               toolboxConfiguration={processedToolbox}
                               initialXml={questData.blocklyConfig.startBlocks}
@@ -352,6 +360,21 @@ export const QuestPlayer: React.FC = () => {
                               }}
                             />
                         )}
+                        <SettingsPanel 
+                            isOpen={isSettingsOpen}
+                            renderer={renderer}
+                            onRendererChange={setRenderer}
+                            blocklyThemeName={blocklyThemeName}
+                            onBlocklyThemeNameChange={setBlocklyThemeName}
+                            gridEnabled={gridEnabled}
+                            onGridChange={setGridEnabled}
+                            soundsEnabled={soundsEnabled}
+                            onSoundsChange={setSoundsEnabled}
+                            colorSchemeMode={colorSchemeMode}
+                            onColorSchemeChange={setColorSchemeMode}
+                            toolboxMode={toolboxMode}
+                            onToolboxModeChange={setToolboxMode}
+                        />
                     </>
                     )
                 ) : (
