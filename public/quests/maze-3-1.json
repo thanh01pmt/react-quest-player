@@ -1,15 +1,15 @@
 {
-  "id": "maze-level-3-1",
+  "id": "maze-3d-2",
   "gameType": "maze",
-  "level": 3,
+  "level": 2,
   "titleKey": "Games.maze",
-  "descriptionKey": "Quest.maze.level3.1.description",
+  "descriptionKey": "Quest.maze3d2.description",
   "translations": {
     "en": {
-      "Quest.maze.level3.1.description": "This long, winding path is perfect for a 'repeat until' loop. Use an 'if/else' block to handle the turns!"
+      "Quest.maze3d2.description": "Help me climb the stairs to reach the goal."
     },
     "vi": {
-      "Quest.maze.level3.1.description": "Con đường dài và quanh co này rất phù hợp để dùng vòng lặp 'lặp lại cho đến khi xong'. Hãy dùng khối 'nếu/nếu không' để xử lý các khúc cua nhé!"
+      "Quest.maze3d2.description": "Giúp tôi leo lên cầu thang để tới đích."
     }
   },
   "blocklyConfig": {
@@ -19,6 +19,10 @@
         {
           "kind": "block",
           "type": "maze_moveForward"
+        },
+        {
+          "kind": "block",
+          "type": "maze_jump"
         },
         {
           "kind": "block",
@@ -33,124 +37,33 @@
           "fields": {
             "DIR": "turnRight"
           }
-        },
-        {
-          "kind": "block",
-          "type": "maze_forever"
-        },
-        {
-          "kind": "block",
-          "type": "maze_ifElse"
         }
       ]
     },
-    "maxBlocks": 10
+    "maxBlocks": 5
   },
   "gameConfig": {
     "type": "maze",
-    "map": [
-      [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        1,
-        0,
-        1,
-        0,
-        1,
-        0,
-        3
-      ],
-      [
-        0,
-        1,
-        0,
-        1,
-        0,
-        1,
-        0,
-        0
-      ],
-      [
-        0,
-        1,
-        0,
-        1,
-        0,
-        1,
-        0,
-        0
-      ],
-      [
-        0,
-        1,
-        0,
-        1,
-        0,
-        1,
-        0,
-        0
-      ],
-      [
-        0,
-        1,
-        0,
-        1,
-        0,
-        1,
-        0,
-        0
-      ],
-      [
-        0,
-        2,
-        1,
-        1,
-        1,
-        1,
-        1,
-        0
-      ],
-      [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-      ]
+    "renderer": "3d",
+    "blocks": [
+      { "modelKey": "ground.normal", "position": { "x": 0, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 2, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 2, "y": 1, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 3, "y": 1, "z": 0 } }
     ],
     "player": {
-      "start": {
-        "x": 1,
-        "y": 6,
-        "direction": 0
-      },
-      "skinId": 0
+      "start": { "x": 0, "y": 1, "z": 0, "direction": 1 }
     },
-    "finish": {
-      "x": 7,
-      "y": 1
-    }
+    "finish": { "x": 3, "y": 2, "z": 0 }
   },
   "solution": {
     "type": "reach_target",
-    "optimalBlocks": 4,
-    "solutionMaxBlocks": 8
+    "optimalBlocks": 3,
+    "solutionMaxBlocks": 4
   },
   "sounds": {
     "win": "/assets/maze/win.mp3",
     "fail": "/assets/maze/fail_pegman.mp3"
-  },
-  "backgroundMusic": "/assets/music/bg_music.mp3"
+  }
 }

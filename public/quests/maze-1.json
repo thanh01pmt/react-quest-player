@@ -56,7 +56,8 @@
     "finish": { "x": 4, "y": 4 }
   },
   "solution": {
-    "type": "reach_target"
+    "type": "reach_target",
+    "optimalBlocks": 2
   },
   "sounds": {
     "win": "/assets/maze/win.mp3",
