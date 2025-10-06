@@ -1,6 +1,6 @@
 // src/components/QuestPlayer/index.tsx
 
-import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
@@ -16,7 +16,7 @@ import { MonacoEditor } from '../MonacoEditor';
 import { EditorToolbar } from '../EditorToolbar';
 import { DocumentationPanel } from '../DocumentationPanel';
 import { BackgroundMusic } from '../BackgroundMusic';
-import { SettingsPanel } from '../SettingsPanel';
+// import { SettingsPanel } from '../SettingsPanel';
 import { countLinesOfCode } from '../../games/codeUtils';
 import { usePrefersColorScheme } from '../../hooks/usePrefersColorScheme';
 import { useSoundManager } from '../../hooks/useSoundManager';
@@ -40,7 +40,7 @@ interface DialogState {
 }
 
 export const QuestPlayer: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const prefersColorScheme = usePrefersColorScheme();
 
   // Quest and UI states
@@ -98,7 +98,6 @@ export const QuestPlayer: React.FC = () => {
     }
   }, [t, aceCode, currentEditor]);
   
-  // THAY ĐỔI: Nhận thêm `handleActionComplete` từ hook
   const { 
     currentGameState, 
     playerStatus, 
@@ -109,6 +108,19 @@ export const QuestPlayer: React.FC = () => {
     stepForward,
     handleActionComplete 
   } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound, setHighlightedBlockId);
+
+  // TÍCH HỢP i18n: Nạp bản dịch từ quest.json
+  useLayoutEffect(() => {
+    if (questData?.translations) {
+      const translations = questData.translations;
+      Object.keys(translations).forEach((langCode) => {
+        i18n.addResourceBundle(langCode, 'translation', translations[langCode], true, true);
+      });
+      // Force i18next to re-evaluate translations
+      i18n.changeLanguage(i18n.language);
+    }
+  }, [questData, i18n]);
+
 
   useEffect(() => {
     if (questLoaderError) setImportError(questLoaderError);
@@ -204,7 +216,12 @@ export const QuestPlayer: React.FC = () => {
       <Dialog isOpen={dialogState.isOpen} title={dialogState.title} onClose={() => setDialogState({ ...dialogState, isOpen: false })}>
         <p>{dialogState.message}</p>
       </Dialog>
-      <DocumentationPanel isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} />
+      {/* TÍCH HỢP DocumentationPanel */}
+      <DocumentationPanel 
+        isOpen={isDocsOpen} 
+        onClose={() => setIsDocsOpen(false)} 
+        gameType={questData?.gameType}
+      />
       <BackgroundMusic src={questData?.backgroundMusic} play={playerStatus === 'running' && soundsEnabled} />
       
       <PanelGroup direction="horizontal" className="appContainer" autoSaveId="quest-player-panels">
@@ -235,11 +252,7 @@ export const QuestPlayer: React.FC = () => {
 
                             {playerStatus !== 'idle' && <button className="primaryButton" onClick={resetGame}>Reset</button>}
                             
-                            {questData.gameType === 'pond' && (
-                                <button className="primaryButton" onClick={() => setIsDocsOpen(true)} title={t('Pond.docsTooltip')}>
-                                    {t('Pond.documentation')}
-                                </button>
-                            )}
+                            {/* Nút Pond documentation đã bị xóa, chức năng được tích hợp vào nút Help chung */}
                         </>
                         )}
                     </div>
@@ -271,7 +284,7 @@ export const QuestPlayer: React.FC = () => {
                         ref={questData.gameType === 'turtle' ? rendererRef : undefined}
                         solutionCommands={solutionCommands}
                         cameraMode={cameraMode}
-                        onActionComplete={handleActionComplete} // THAY ĐỔI: Truyền callback xuống
+                        onActionComplete={handleActionComplete}
                     />
                     ) : (
                     <div className="emptyState"><h2>Load quest to play</h2></div>
@@ -291,11 +304,12 @@ export const QuestPlayer: React.FC = () => {
         <Panel minSize={30} onResize={handleBlocklyPanelResize}>
             <div className="blocklyColumn">
                 {questData && (
+                    // TÍCH HỢP EditorToolbar MỚI
                     <EditorToolbar
-                    supportedEditors={questData.supportedEditors || ['blockly']}
-                    currentEditor={currentEditor}
-                    onEditorChange={handleEditorChange}
-                    onToggleSettings={() => setIsSettingsOpen(!isSettingsOpen)}
+                      supportedEditors={questData.supportedEditors || ['blockly']}
+                      currentEditor={currentEditor}
+                      onEditorChange={handleEditorChange}
+                      onHelpClick={() => setIsDocsOpen(true)}
                     />
                 )}
                 {questData && GameRenderer ? (
@@ -319,21 +333,8 @@ export const QuestPlayer: React.FC = () => {
                               }}
                             />
                         )}
-                        <SettingsPanel 
-                            isOpen={isSettingsOpen}
-                            renderer={renderer}
-                            onRendererChange={setRenderer}
-                            blocklyThemeName={blocklyThemeName}
-                            onBlocklyThemeNameChange={setBlocklyThemeName}
-                            gridEnabled={gridEnabled}
-                            onGridChange={setGridEnabled}
-                            soundsEnabled={soundsEnabled}
-                            onSoundsChange={setSoundsEnabled}
-                            colorSchemeMode={colorSchemeMode}
-                            onColorSchemeChange={setColorSchemeMode}
-                            toolboxMode={toolboxMode}
-                            onToolboxModeChange={setToolboxMode}
-                        />
+                        {/* Tạm thời vô hiệu hóa SettingsPanel để tích hợp lại sau */}
+                        {/* <SettingsPanel ... /> */}
                     </>
                     )
                 ) : (

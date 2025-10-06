@@ -88,15 +88,11 @@ export interface Block {
 export interface MazeConfig {
   type: 'maze';
   renderer?: '2d' | '3d';
-  // Config có thể chứa một trong hai
   map?: number[][]; 
   blocks?: Block[];
   player: {
-    // Trong 2D, y là hàng, z không tồn tại.
-    // Trong 3D, y là độ cao, z là chiều sâu.
     start: { x: number, y: number, z?: number, direction: 0 | 1 | 2 | 3 };
   };
-  // Tương tự, z là optional cho 2D.
   finish: { x: number, y: number, z?: number };
 }
 
@@ -151,10 +147,11 @@ export type StepResult = {
 } | null;
 
 export interface IGameEngine {
+  readonly gameType: string; // THÊM MỚI
   reset?(): void;
   getInitialState(): GameState;
   
-  execute(userCode: string, onHighlight: (blockId: string) => void): GameState[] | void;
+  execute(userCode: string): void;
 
   step?(): StepResult;
 

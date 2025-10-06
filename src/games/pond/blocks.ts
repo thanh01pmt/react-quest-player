@@ -170,51 +170,53 @@ export function init() {
         newField = new Blockly.FieldNumber(value);
       }
       input.appendField(newField, 'NUM');
-      // The render call is removed as it's incorrect and likely unnecessary.
-      // Blockly's event system should handle re-rendering.
       Blockly.Events.enable();
     }
   };
 
+  // SỬA LỖI: Định nghĩa HIGHLIGHT_PREFIX ở đúng scope
+  const HIGHLIGHT_PREFIX = `highlightBlock('block_id_%1');\n`;
+
   javascriptGenerator.forBlock['pond_scan'] = function(block: Blockly.Block) {
     const degree = javascriptGenerator.valueToCode(block, 'DEGREE', Order.NONE) || '0';
-    return [`scan(${degree})`, Order.FUNCTION_CALL];
+    const code = `scan(${degree}, 'block_id_${block.id}')`; // Truyền ID vào hàm
+    return [code, Order.FUNCTION_CALL];
   };
 
   javascriptGenerator.forBlock['pond_cannon'] = function(block: Blockly.Block) {
     const degree = javascriptGenerator.valueToCode(block, 'DEGREE', Order.COMMA) || '0';
     const range = javascriptGenerator.valueToCode(block, 'RANGE', Order.COMMA) || '0';
-    return `cannon(${degree}, ${range});\n`;
+    return HIGHLIGHT_PREFIX.replace('%1', block.id) + `cannon(${degree}, ${range});\n`;
   };
 
   javascriptGenerator.forBlock['pond_swim'] = function(block: Blockly.Block) {
     const degree = javascriptGenerator.valueToCode(block, 'DEGREE', Order.NONE) || '0';
-    return `swim(${degree});\n`;
+    return HIGHLIGHT_PREFIX.replace('%1', block.id) + `swim(${degree});\n`;
   };
 
-  javascriptGenerator.forBlock['pond_stop'] = function(_block: Blockly.Block) {
-    return 'stop();\n';
+  javascriptGenerator.forBlock['pond_stop'] = function(block: Blockly.Block) {
+    return HIGHLIGHT_PREFIX.replace('%1', block.id) + 'stop();\n';
   };
 
-  javascriptGenerator.forBlock['pond_health'] = function(_block: Blockly.Block) {
-    return ['health()', Order.FUNCTION_CALL];
+  javascriptGenerator.forBlock['pond_health'] = function(block: Blockly.Block) {
+    return [`health('block_id_${block.id}')`, Order.FUNCTION_CALL];
   };
 
-  javascriptGenerator.forBlock['pond_speed'] = function(_block: Blockly.Block) {
-    return ['speed()', Order.FUNCTION_CALL];
+  javascriptGenerator.forBlock['pond_speed'] = function(block: Blockly.Block) {
+    return [`speed('block_id_${block.id}')`, Order.FUNCTION_CALL];
   };
 
-  javascriptGenerator.forBlock['pond_getX'] = function(_block: Blockly.Block) {
-    return ['getX()', Order.FUNCTION_CALL];
+  javascriptGenerator.forBlock['pond_getX'] = function(block: Blockly.Block) {
+    return [`getX('block_id_${block.id}')`, Order.FUNCTION_CALL];
   };
 
-  javascriptGenerator.forBlock['pond_getY'] = function(_block: Blockly.Block) {
-    return ['getY()', Order.FUNCTION_CALL];
+  javascriptGenerator.forBlock['pond_getY'] = function(block: Blockly.Block) {
+    return [`getY('block_id_${block.id}')`, Order.FUNCTION_CALL];
   };
 
   javascriptGenerator.forBlock['pond_log'] = function(block: Blockly.Block) {
     const value = javascriptGenerator.valueToCode(block, 'VALUE', Order.NONE) || '\'\'';
-    return `log(${value});\n`;
+    return HIGHLIGHT_PREFIX.replace('%1', block.id) + `console.log(${value});\n`;
   };
   
   javascriptGenerator.forBlock['pond_math_number'] = (javascriptGenerator as any).forBlock['math_number'];
@@ -228,9 +230,4 @@ export function init() {
     };
     return [`Math.${func[op as keyof typeof func]}(${arg})`, Order.FUNCTION_CALL];
   };
-  
-  (Blockly.Blocks as any)['pond_loc_x'] = Blockly.Blocks['pond_getX'];
-  (javascriptGenerator.forBlock as any)['pond_loc_x'] = javascriptGenerator.forBlock['pond_getX'];
-  (Blockly.Blocks as any)['pond_loc_y'] = Blockly.Blocks['pond_getY'];
-  (javascriptGenerator.forBlock as any)['pond_loc_y'] = javascriptGenerator.forBlock['pond_getY'];
 }

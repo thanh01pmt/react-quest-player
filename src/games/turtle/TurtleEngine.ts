@@ -10,6 +10,8 @@ const EXECUTION_TIMEOUT_TICKS = 100000;
 const PAUSE_EVERY_N_STEPS = 1000;
 
 export class TurtleEngine implements IGameEngine {
+  public readonly gameType = 'turtle';
+
   private readonly startState: TurtleGameState;
   private currentState!: TurtleGameState;
   private interpreter: Interpreter | null = null;
@@ -25,6 +27,7 @@ export class TurtleEngine implements IGameEngine {
       commands: [
         { command: 'penColour', colour: '#ffffff' }
       ],
+      // SỬA LỖI: Thêm thuộc tính còn thiếu
       highlightedBlockId: null,
       result: 'unset',
       isFinished: false,
@@ -36,7 +39,7 @@ export class TurtleEngine implements IGameEngine {
     return JSON.parse(JSON.stringify(this.startState));
   }
 
-  execute(userCode: string, _onHighlight: (blockId: string) => void): void {
+  execute(userCode: string): void {
     this.currentState = this.getInitialState();
     this.interpreter = new Interpreter(userCode, this.initApi.bind(this));
     this.ticks = EXECUTION_TIMEOUT_TICKS;
@@ -56,7 +59,7 @@ export class TurtleEngine implements IGameEngine {
       if (this.ticks-- <= 0) {
         this.currentState.result = 'timeout';
         this.currentState.isFinished = true;
-        return { done: true, state: this.currentState };
+        return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
       }
       
       try {
@@ -65,7 +68,7 @@ export class TurtleEngine implements IGameEngine {
         console.error('Execution error:', e);
         this.currentState.result = 'error';
         this.currentState.isFinished = true;
-        return { done: true, state: this.currentState };
+        return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
       }
 
       if (this.highlightedBlockId) {
@@ -87,7 +90,7 @@ export class TurtleEngine implements IGameEngine {
 
     this.currentState.isFinished = true;
     this.currentState.result = 'unset'; 
-    return { done: true, state: this.currentState };
+    return { done: true, state: this.currentState, highlightedBlockId: null };
   }
   
   public runHeadless(script: string): DrawingCommand[] {
@@ -161,20 +164,16 @@ export class TurtleEngine implements IGameEngine {
     interpreter.setProperty(globalObject, 'showTurtle', wrap((id: string) => this.isVisible(true, id)));
     interpreter.setProperty(globalObject, 'print', wrap(() => {}));
     interpreter.setProperty(globalObject, 'font', wrap(() => {}));
-    
-    // Add API for highlighting blocks
-    const highlightWrapper = (id: string) => { this.highlight(id); };
-    interpreter.setProperty(globalObject, 'highlightBlock', interpreter.createNativeFunction(highlightWrapper));
   }
 
   private highlight(id?: string): void {
-    if (id) {
-      const match = id.match(/^block_id_([^']+)$/);
-      this.highlightedBlockId = match ? match[1] : null;
+    if (typeof id === 'string' && id.startsWith('block_id_')) {
+      this.highlightedBlockId = id.replace('block_id_', '');
     }
   }
 
   private move(distance: number, id?: string): void {
+    this.highlight(id);
     const { turtle } = this.currentState;
     if (turtle.penDown) {
       this.currentState.commands.push({ command: 'moveTo', x: turtle.x, y: turtle.y });
@@ -186,31 +185,30 @@ export class TurtleEngine implements IGameEngine {
       this.currentState.commands.push({ command: 'lineTo', x: turtle.x, y: turtle.y });
       this.currentState.commands.push({ command: 'stroke' });
     }
-    this.highlight(id);
   }
 
   private turn(angle: number, id?: string): void {
-    this.currentState.turtle.heading = (this.currentState.turtle.heading + angle + 360) % 360;
     this.highlight(id);
+    this.currentState.turtle.heading = (this.currentState.turtle.heading + angle + 360) % 360;
   }
 
   private penDown(isDown: boolean, id?: string): void {
-    this.currentState.turtle.penDown = isDown;
     this.highlight(id);
+    this.currentState.turtle.penDown = isDown;
   }
 
   private penWidth(width: number, id?: string): void {
-    this.currentState.commands.push({ command: 'penWidth', width });
     this.highlight(id);
+    this.currentState.commands.push({ command: 'penWidth', width });
   }
 
   private penColour(colour: string, id?: string): void {
-    this.currentState.commands.push({ command: 'penColour', colour });
     this.highlight(id);
+    this.currentState.commands.push({ command: 'penColour', colour });
   }
   
   private isVisible(visible: boolean, id?: string): void {
-    this.currentState.turtle.visible = visible;
     this.highlight(id);
+    this.currentState.turtle.visible = visible;
   }
 }

@@ -1,7 +1,7 @@
 // src/games/pond/PondEngine.ts
 
 import Interpreter from 'js-interpreter';
-import type { IGameEngine, GameConfig, PondConfig, SolutionConfig, GameState } from '../../types';
+import type { IGameEngine, GameConfig, PondConfig, SolutionConfig, GameState, StepResult } from '../../types';
 import type { PondGameState, AvatarState, PondEvent } from './types';
 
 type Interpreter = any;
@@ -12,9 +12,7 @@ const COLLISION_RADIUS = 5;
 const AVATAR_SPEED_FACTOR = 1;
 const ACCELERATION = 5;
 const COLLISION_DAMAGE = 3;
-const RELOAD_TIME_MS = 500; // Cooldown period for the cannon in milliseconds
-
-// Internal type for missile simulation
+const RELOAD_TIME_MS = 500;
 interface Missile {
   avatar: Avatar;
   ownerId: string;
@@ -23,8 +21,6 @@ interface Missile {
   range: number;
   progress: number;
 }
-
-// A simple class to manage the state and interpreter of a single avatar
 class Avatar {
   id: string;
   name: string;
@@ -32,6 +28,7 @@ class Avatar {
   interpreter: Interpreter | null = null;
   code: string;
   lastFiredTime = 0;
+  highlightedBlockId: string | null = null;
   private readonly startX: number;
   private readonly startY: number;
   private readonly startDamage: number;
@@ -46,7 +43,7 @@ class Avatar {
 
     this.state = {
       id: this.id,
-      name: this.name,
+      name: name,
       x: startX,
       y: startY,
       damage: damage,
@@ -70,27 +67,29 @@ class Avatar {
     this.state.facing = this.state.heading;
     this.interpreter = null;
     this.lastFiredTime = 0;
+    this.highlightedBlockId = null;
   }
 
   addDamage(damage: number): boolean {
     if (this.state.dead) return false;
     this.state.damage += damage;
     if (this.state.damage >= 100) {
-      this.state.damage = 100; // Clamp damage to 100
+      this.state.damage = 100;
       this.state.dead = true;
-      return true; // Avatar just died
+      return true;
     }
-    return false; // Avatar survived
+    return false;
   }
 
   private pointsToAngle(x1: number, y1: number, x2: number, y2: number): number {
-    // Invert Y-axis for correct angle calculation in game coordinates (0-East, 90-North)
     const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
     return (angle + 360) % 360;
   }
 }
 
 export class PondEngine implements IGameEngine {
+  public readonly gameType = 'pond';
+  
   private avatars: Avatar[] = [];
   private missiles: Missile[] = [];
   private events: PondEvent[] = [];
@@ -99,15 +98,14 @@ export class PondEngine implements IGameEngine {
   constructor(gameConfig: GameConfig) {
     const config = gameConfig as PondConfig;
     config.avatars.forEach((avatarConfig, index) => {
-      const avatar = new Avatar(
+      this.avatars.push(new Avatar(
         avatarConfig.name,
         avatarConfig.start.x,
         avatarConfig.start.y,
         avatarConfig.damage,
         avatarConfig.isPlayer ? '' : avatarConfig.code || '',
         index
-      );
-      this.avatars.push(avatar);
+      ));
     });
   }
 
@@ -150,13 +148,19 @@ export class PondEngine implements IGameEngine {
     });
   }
 
-  step(): { done: boolean; state: PondGameState } | null {
+  step(): StepResult {
+    let lastHighlightedBlockId: string | null = null;
+
     for (let i = 0; i < STATEMENTS_PER_FRAME; i++) {
         this.ticks++;
         for (const avatar of this.avatars) {
+            avatar.highlightedBlockId = null;
             if (!avatar.state.dead && avatar.interpreter) {
                 try {
                     avatar.interpreter.step();
+                    if (avatar.highlightedBlockId) {
+                      lastHighlightedBlockId = avatar.highlightedBlockId;
+                    }
                 } catch (e) {
                     console.error(`${avatar.name} interpreter error:`, e);
                     avatar.state.dead = true;
@@ -171,18 +175,19 @@ export class PondEngine implements IGameEngine {
 
     const nonPlayerSurvivors = this.avatars.filter(a => !a.state.dead && a.state.visualizationIndex !== 0);
     const player = this.avatars.find(a => a.state.visualizationIndex === 0);
-    if (nonPlayerSurvivors.length === 0 || (player && player.state.dead)) {
-      const finalState = this.getCurrentState();
-      finalState.isFinished = true;
-      finalState.rank = this.avatars
-        .sort((a,b) => (a.state.dead ? 1 : 0) - (b.state.dead ? 1 : 0) || a.state.damage - b.state.damage)
-        .map(a => a.id);
-      return { done: true, state: finalState };
-    }
+    const isFinished = nonPlayerSurvivors.length === 0 || (player && player.state.dead) || false;
 
     const currentState = this.getCurrentState();
+    currentState.isFinished = isFinished;
+
+    if (isFinished) {
+      currentState.rank = this.avatars
+        .sort((a,b) => (a.state.dead ? 1 : 0) - (b.state.dead ? 1 : 0) || a.state.damage - b.state.damage)
+        .map(a => a.id);
+    }
+    
     this.events = [];
-    return { done: false, state: currentState };
+    return { done: isFinished, state: currentState, highlightedBlockId: lastHighlightedBlockId };
   }
   
   private updateAvatars() {
@@ -315,37 +320,53 @@ export class PondEngine implements IGameEngine {
   }
 
   private initApi(interpreter: any, globalObject: any, currentAvatar: Avatar) {
-    const wrap = (func: Function) => interpreter.createNativeFunction(func);
+    // SỬA LỖI: Wrapper giờ đây sẽ bảo toàn `this` context
+    const wrap = (func: Function) => interpreter.createNativeFunction((...args: any[]) => {
+      const blockId = args.pop();
+      if (typeof blockId === 'string' && blockId.startsWith('block_id_')) {
+        currentAvatar.highlightedBlockId = blockId.replace('block_id_', '');
+      }
+      // Gọi hàm gốc với `this` là instance của PondEngine
+      return func.apply(this, args); 
+    });
+
+    const highlightWrapper = (id: string) => {
+        if (typeof id === 'string' && id.startsWith('block_id_')) {
+            currentAvatar.highlightedBlockId = id.replace('block_id_', '');
+        }
+    };
+    interpreter.setProperty(globalObject, 'highlightBlock', interpreter.createNativeFunction(highlightWrapper));
+
     const toRadians = (deg: number) => deg * Math.PI / 180;
     const toDegrees = (rad: number) => rad * 180 / Math.PI;
 
     const cannon = (degree: number, range: number) => {
-        const now = Date.now();
-        if (now - currentAvatar.lastFiredTime < RELOAD_TIME_MS) {
-            return;
-        }
-        currentAvatar.lastFiredTime = now;
-        const startLoc = { x: currentAvatar.state.x, y: currentAvatar.state.y };
-        degree = (degree + 360) % 360;
-        currentAvatar.state.facing = degree;
-        range = Math.max(0, Math.min(range, 70));
-        const radians = degree * Math.PI / 180;
-        const endLoc = {
-            x: startLoc.x + range * Math.cos(radians),
-            y: startLoc.y + range * Math.sin(radians),
-        };
-        this.missiles.push({ avatar: currentAvatar, ownerId: currentAvatar.id, startLoc, endLoc, range, progress: 0 });
+      const now = Date.now();
+      if (now - currentAvatar.lastFiredTime < RELOAD_TIME_MS) {
+          return;
+      }
+      currentAvatar.lastFiredTime = now;
+      const startLoc = { x: currentAvatar.state.x, y: currentAvatar.state.y };
+      degree = (degree + 360) % 360;
+      currentAvatar.state.facing = degree;
+      range = Math.max(0, Math.min(range, 70));
+      const radians = degree * Math.PI / 180;
+      const endLoc = {
+          x: startLoc.x + range * Math.cos(radians),
+          y: startLoc.y + range * Math.sin(radians),
+      };
+      // `this` ở đây giờ sẽ trỏ đến PondEngine
+      this.missiles.push({ avatar: currentAvatar, ownerId: currentAvatar.id, startLoc, endLoc, range, progress: 0 });
     };
+    
     interpreter.setProperty(globalObject, 'cannon', wrap(cannon));
 
     const scan = (degree: number, resolution = 5): number => {
       degree = (degree + 360) % 360;
       resolution = Math.max(1, Math.min(resolution, 20));
       this.events.push({ type: 'SCAN', avatarId: currentAvatar.id, degree, resolution });
-      const scan1 = (degree - resolution / 2 + 360) % 360;
-      let scan2 = (degree + resolution / 2 + 360) % 360;
-      if (scan1 > scan2) scan2 += 360;
       let closestRange = Infinity;
+      // `this` ở đây giờ sẽ trỏ đến PondEngine
       for (const enemy of this.avatars) {
         if (enemy === currentAvatar || enemy.state.dead) continue;
         const dx = enemy.state.x - currentAvatar.state.x;
@@ -354,27 +375,30 @@ export class PondEngine implements IGameEngine {
         if (range >= closestRange) continue;
         let angle = Math.atan2(dy, dx) * 180 / Math.PI;
         angle = (angle + 360) % 360;
+        const scan1 = (degree - resolution / 2 + 360) % 360;
+        let scan2 = (degree + resolution / 2 + 360) % 360;
+        if (scan1 > scan2) scan2 += 360;
         if (angle < scan1) angle += 360;
         if (scan1 <= angle && angle <= scan2) {
             closestRange = range;
         }
       }
       return closestRange;
-    };
+    };    
+    
     interpreter.setProperty(globalObject, 'scan', wrap(scan));
 
     const swim = (degree: number, speed = 50) => {
-        const desiredDegree = (degree + 360) % 360;
-        if (currentAvatar.state.heading !== desiredDegree) {
-            if (currentAvatar.state.speed > 50) {
-                // High-speed turn penalty: stop the avatar.
-                currentAvatar.state.desiredSpeed = 0;
-            } else {
-                currentAvatar.state.heading = desiredDegree;
-            }
-        }
-        currentAvatar.state.facing = desiredDegree; // Always update facing direction
-        currentAvatar.state.desiredSpeed = Math.max(0, Math.min(speed, 100));
+      const desiredDegree = (degree + 360) % 360;
+      if (currentAvatar.state.heading !== desiredDegree) {
+          if (currentAvatar.state.speed > 50) {
+              currentAvatar.state.desiredSpeed = 0;
+          } else {
+              currentAvatar.state.heading = desiredDegree;
+          }
+      }
+      currentAvatar.state.facing = desiredDegree;
+      currentAvatar.state.desiredSpeed = Math.max(0, Math.min(speed, 100));
     };
     interpreter.setProperty(globalObject, 'swim', wrap(swim));
     interpreter.setProperty(globalObject, 'drive', wrap(swim));
@@ -385,7 +409,7 @@ export class PondEngine implements IGameEngine {
     interpreter.setProperty(globalObject, 'health', wrap(() => 100 - currentAvatar.state.damage));
     interpreter.setProperty(globalObject, 'speed', wrap(() => currentAvatar.state.speed));
     interpreter.setProperty(globalObject, 'damage', wrap(() => currentAvatar.state.damage));
-
+    
     const mathObj = interpreter.getProperty(globalObject, 'Math');
     if (mathObj) {
       const wrapMath = (func: Function) => interpreter.createNativeFunction(func);

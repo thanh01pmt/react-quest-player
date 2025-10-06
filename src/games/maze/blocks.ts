@@ -2,19 +2,29 @@
 
 import * as Blockly from 'blockly/core';
 import { javascriptGenerator } from 'blockly/javascript';
-import i18n from '../../i18n'; // Import the initialized i18next instance
+import i18n from '../../i18n';
 
 /**
  * Construct custom maze block types. Called from the GameBlockManager.
  */
 export function init() {
+  Blockly.Msg['CONTROLS_REPEAT_TITLE'] = i18n.t('Controls.repeatTitle', 'repeat %1 times');
+  Blockly.Msg['CONTROLS_REPEAT_INPUT_DO'] = i18n.t('Controls.repeatInputDo', 'do');
+  Blockly.Msg['DUPLICATE_BLOCK'] = i18n.t('DUPLICATE_BLOCK', 'Duplicate Block');
+  Blockly.Msg['REMOVE_COMMENT'] = i18n.t('REMOVE_COMMENT', 'Remove Comment');
+  Blockly.Msg['ADD_COMMENT'] = i18n.t('ADD_COMMENT', 'Add Comment');
+  Blockly.Msg['EXTERNAL_INPUTS'] = i18n.t('EXTERNAL_INPUTS', 'External Inputs');
+  Blockly.Msg['INLINE_INPUTS'] = i18n.t('INLINE_INPUTS', 'Inline Inputs');
+  Blockly.Msg['DELETE_BLOCK'] = i18n.t('DELETE_BLOCK', 'Delete Block');
+  Blockly.Msg['DELETE_X_BLOCKS'] = i18n.t('DELETE_X_BLOCKS', 'Delete %1 Blocks');
+  Blockly.Msg['HELP'] = i18n.t('Games.help', 'Help');
+
   const MOVEMENT_HUE = 290;
   const LOOPS_HUE = 120;
   const LOGIC_HUE = 210;
   const LEFT_TURN = ' ↺';
   const RIGHT_TURN = ' ↻';
 
-  // Use i18next to get translated strings
   const TURN_DIRECTIONS: [string, string][] = [
     [i18n.t('Maze.turnLeft'), 'turnLeft'],
     [i18n.t('Maze.turnRight'), 'turnRight'],
@@ -29,10 +39,17 @@ export function init() {
   Blockly.Extensions.register('maze_turn_arrows', function(this: Blockly.Block) {
       const dropdown = this.getField('DIR');
       if (!dropdown || typeof (dropdown as any).getOptions !== 'function') return;
-      const options = (dropdown as any).getOptions(false); // Get raw options
+      const options = (dropdown as any).getOptions(false);
       if (options[0]) options[0][0] = `${i18n.t('Maze.turnLeft')}${LEFT_TURN}`;
       if (options[1]) options[1][0] = `${i18n.t('Maze.turnRight')}${RIGHT_TURN}`;
   });
+
+  const helpClickHandler = () => {
+    const helpButton = document.querySelector('.help-button');
+    if (helpButton instanceof HTMLElement) {
+      helpButton.click();
+    }
+  };
 
   Blockly.defineBlocksWithJsonArray([
     {
@@ -42,14 +59,16 @@ export function init() {
       "nextStatement": null,
       "colour": MOVEMENT_HUE,
       "tooltip": i18n.t('Maze.moveForwardTooltip'),
+      "helpUrl": helpClickHandler,
     },
     {
       "type": "maze_jump",
-      "message0": "jump", // Sẽ cần thêm key i18n sau: i18n.t('Maze.jump')
+      "message0": "jump", // TODO: Thêm i18n key 'Maze.jump'
       "previousStatement": null,
       "nextStatement": null,
       "colour": MOVEMENT_HUE,
-      "tooltip": "Jumps forward one space.", // Sẽ cần thêm key i18n sau
+      "tooltip": "Jumps forward and up one block.", // TODO: Thêm i18n key
+      "helpUrl": helpClickHandler,
     },
     {
       "type": "maze_turn",
@@ -64,6 +83,7 @@ export function init() {
       "colour": MOVEMENT_HUE,
       "tooltip": i18n.t('Maze.turnTooltip'),
       "extensions": ["maze_turn_arrows"],
+      "helpUrl": helpClickHandler,
     },
     {
       "type": "maze_if",
@@ -77,6 +97,7 @@ export function init() {
       "nextStatement": null,
       "colour": LOGIC_HUE,
       "tooltip": i18n.t('Maze.ifTooltip'),
+      "helpUrl": helpClickHandler,
     },
     {
       "type": "maze_ifElse",
@@ -91,6 +112,7 @@ export function init() {
       "nextStatement": null,
       "colour": LOGIC_HUE,
       "tooltip": i18n.t('Maze.ifelseTooltip'),
+      "helpUrl": helpClickHandler,
     },
     {
       "type": "maze_forever",
@@ -103,31 +125,32 @@ export function init() {
       "previousStatement": null,
       "colour": LOOPS_HUE,
       "tooltip": i18n.t('Maze.whileTooltip'),
+      "helpUrl": helpClickHandler,
     },
   ]);
 
   javascriptGenerator.forBlock['maze_moveForward'] = function(block: Blockly.Block) {
-    return `highlightBlock('block_id_${block.id}');\nmoveForward();\n`;
+    return `moveForward('block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['maze_jump'] = function(block: Blockly.Block) {
-    return `highlightBlock('block_id_${block.id}');\njump();\n`;
+    return `jump('block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['maze_turn'] = function(block: Blockly.Block) {
     const dir = block.getFieldValue('DIR');
-    return `highlightBlock('block_id_${block.id}');\n${dir}();\n`;
+    return `${dir}('block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['maze_if'] = function(block: Blockly.Block) {
     const dir = block.getFieldValue('DIR');
-    const argument = `${dir}()`;
+    const argument = `${dir}('block_id_${block.id}')`;
     const branch = javascriptGenerator.statementToCode(block, 'DO');
-    return `highlightBlock('block_id_${block.id}');\nif (${argument}) {\n${branch}}\n`;
+    return `if (${argument}) {\n${branch}}\n`;
   };
   javascriptGenerator.forBlock['maze_ifElse'] = function(block: Blockly.Block) {
     const dir = block.getFieldValue('DIR');
-    const argument = `${dir}()`;
+    const argument = `${dir}('block_id_${block.id}')`;
     const branch0 = javascriptGenerator.statementToCode(block, 'DO');
     const branch1 = javascriptGenerator.statementToCode(block, 'ELSE');
-    return `highlightBlock('block_id_${block.id}');\nif (${argument}) {\n${branch0}} else {\n${branch1}}\n`;
+    return `if (${argument}) {\n${branch0}} else {\n${branch1}}\n`;
   };
   javascriptGenerator.forBlock['maze_forever'] = function(block: Blockly.Block) {
     let branch = javascriptGenerator.statementToCode(block, 'DO');
@@ -135,6 +158,6 @@ export function init() {
       branch = (javascriptGenerator as any).INFINITE_LOOP_TRAP.replace(/%1/g,
           `'block_id_${block.id}'`) + branch;
     }
-    return `highlightBlock('block_id_${block.id}');\nwhile (notDone()) {\n${branch}}\n`;
+    return `while (notDone('block_id_${block.id}')) {\n${branch}}\n`;
   };
 }

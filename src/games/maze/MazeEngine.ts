@@ -4,10 +4,11 @@ import Interpreter from 'js-interpreter';
 import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig, Block, StepResult } from '../../types';
 import type { MazeGameState, Direction, PlayerState } from './types';
 
-const STEPS_PER_FRAME = 100;
 const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
 
 export class MazeEngine implements IGameEngine {
+  public readonly gameType = 'maze';
+
   private readonly blocks: Block[];
   private readonly blockSet: Set<string>;
   private readonly start: PlayerState;
@@ -16,7 +17,7 @@ export class MazeEngine implements IGameEngine {
   private currentState!: MazeGameState;
   
   private interpreter: any | null = null;
-  private onHighlightCallback: (id: string) => void = () => {};
+  // THAY ĐỔI: Sử dụng thuộc tính class để lưu trữ ID, không dùng callback nữa
   private highlightedBlockId: string | null = null;
   private executedAction: boolean = false;
 
@@ -76,39 +77,36 @@ export class MazeEngine implements IGameEngine {
     };
   }
 
-  execute(userCode: string, onHighlight: (blockId: string) => void): void {
+  execute(userCode: string): void {
     this.currentState = this.getInitialState();
-    this.onHighlightCallback = onHighlight;
     this.highlightedBlockId = null;
 
     const initApi = (interpreter: any, globalObject: any) => {
-      const actionWrapper = (func: (...args: any[]) => any) => interpreter.createNativeFunction((...args: any[]) => {
-        const result = func.call(this, ...args);
-        this.executedAction = true;
-        return result;
-      });
-      const queryWrapper = (func: (...args: any[]) => any) => interpreter.createNativeFunction((...args: any[]) => func.call(this, ...args));
-
-      interpreter.setProperty(globalObject, 'moveForward', actionWrapper(this.moveForward));
-      interpreter.setProperty(globalObject, 'turnLeft', actionWrapper(this.turnLeft));
-      interpreter.setProperty(globalObject, 'turnRight', actionWrapper(this.turnRight));
-      interpreter.setProperty(globalObject, 'jump', actionWrapper(this.jump));
-      interpreter.setProperty(globalObject, 'isPathForward', queryWrapper(this.isPath.bind(this, 0)));
-      interpreter.setProperty(globalObject, 'isPathRight', queryWrapper(this.isPath.bind(this, 1)));
-      interpreter.setProperty(globalObject, 'isPathLeft', queryWrapper(this.isPath.bind(this, 3)));
-      interpreter.setProperty(globalObject, 'notDone', queryWrapper(this.notDone));
-
-      const highlightWrapper = (id: string) => {
-        const realId = id ? id.replace('block_id_', '') : '';
-        this.highlightedBlockId = realId;
-        this.onHighlightCallback(realId);
+      const createWrapper = (func: Function, isAction: boolean) => {
+        return interpreter.createNativeFunction((...args: any[]) => {
+          const blockId = args[args.length - 1];
+          this.highlight(blockId);
+          if (isAction) {
+            this.executedAction = true;
+          }
+          return func.apply(this, args);
+        });
       };
-      interpreter.setProperty(globalObject, 'highlightBlock', interpreter.createNativeFunction(highlightWrapper));
+
+      interpreter.setProperty(globalObject, 'moveForward', createWrapper(this.moveForward, true));
+      interpreter.setProperty(globalObject, 'turnLeft', createWrapper(this.turnLeft, true));
+      interpreter.setProperty(globalObject, 'turnRight', createWrapper(this.turnRight, true));
+      interpreter.setProperty(globalObject, 'jump', createWrapper(this.jump, true));
+      interpreter.setProperty(globalObject, 'isPathForward', createWrapper(this.isPath.bind(this, 0), false));
+      interpreter.setProperty(globalObject, 'isPathRight', createWrapper(this.isPath.bind(this, 1), false));
+      interpreter.setProperty(globalObject, 'isPathLeft', createWrapper(this.isPath.bind(this, 3), false));
+      interpreter.setProperty(globalObject, 'notDone', createWrapper(this.notDone, false));
     };
 
     this.interpreter = new Interpreter(userCode, initApi);
   }
-
+  
+  // SỬA LỖI: Sửa lại signature của step() để khớp với IGameEngine
   step(): StepResult {
     if (!this.interpreter || this.currentState.isFinished) {
       return null;
@@ -117,26 +115,14 @@ export class MazeEngine implements IGameEngine {
     this.highlightedBlockId = null;
     this.executedAction = false;
     let hasMoreCode = true;
-    let highlightedBlockId: string | null = null;
-    let steps = 0;
 
-    while (steps < STEPS_PER_FRAME && hasMoreCode && !this.executedAction) {
+    while (hasMoreCode && !this.executedAction) {
         try {
             hasMoreCode = this.interpreter.step();
         } catch (e) {
             this.currentState.result = 'error';
             this.currentState.isFinished = true;
             return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
-        }
-        steps++;
-
-        if (this.highlightedBlockId) {
-            if (highlightedBlockId === null) {
-                highlightedBlockId = this.highlightedBlockId;
-                this.highlightedBlockId = null;
-            } else {
-                break;
-            }
         }
     }
 
@@ -148,23 +134,30 @@ export class MazeEngine implements IGameEngine {
         this.currentState.isFinished = true;
     }
     
-    return {
+    // SỬA LỖI: Trả về highlightedBlockId đã được lưu
+    const result = {
         done: this.currentState.isFinished,
         state: JSON.parse(JSON.stringify(this.currentState)),
-        highlightedBlockId: highlightedBlockId
+        highlightedBlockId: this.highlightedBlockId
     };
+    this.highlightedBlockId = null; // Reset sau khi đã trả về
+    return result;
   }
+
 
   checkWinCondition(finalState: GameState, _solutionConfig: SolutionConfig): boolean {
     const state = finalState as MazeGameState;
     return state.player.x === this.finish.x && state.player.y === this.finish.y && state.player.z === this.finish.z;
   }
+  
+  private highlight(id?: string): void {
+    if (typeof id === 'string' && id.startsWith('block_id_')) {
+      this.highlightedBlockId = id.replace('block_id_', '');
+    }
+  }
 
   private getNextPosition(x: number, z: number, direction: Direction): { x: number, z: number } {
-    if (direction === 0) z--;
-    else if (direction === 1) x++;
-    else if (direction === 2) z++;
-    else if (direction === 3) x--;
+    if (direction === 0) z--; else if (direction === 1) x++; else if (direction === 2) z++; else if (direction === 3) x--;
     return { x, z };
   }
   

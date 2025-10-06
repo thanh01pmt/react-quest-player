@@ -168,51 +168,50 @@ export function init() {
     },
   ]);
 
-  const HIGHLIGHT_PREFIX = "highlightBlock('block_id_%1');\n";
-
+  // SỬA ĐỔI: Thêm block.id vào các lệnh gọi hàm
   javascriptGenerator.forBlock['turtle_move'] = function(block: Blockly.Block) {
     const value = javascriptGenerator.valueToCode(block, 'VALUE', Order.NONE) || '0';
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('DIR')}(${value});\n`;
+    return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_move_internal'] = function(block: Blockly.Block) {
     const value = Number(block.getFieldValue('VALUE'));
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('DIR')}(${value});\n`;
+    return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_turn'] = function(block: Blockly.Block) {
     const value = javascriptGenerator.valueToCode(block, 'VALUE', Order.NONE) || '0';
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('DIR')}(${value});\n`;
+    return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_turn_internal'] = function(block: Blockly.Block) {
     const value = Number(block.getFieldValue('VALUE'));
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('DIR')}(${value});\n`;
+    return `${block.getFieldValue('DIR')}(${value}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_width'] = function(block: Blockly.Block) {
     const width = javascriptGenerator.valueToCode(block, 'WIDTH', Order.NONE) || '1';
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}penWidth(${width});\n`;
+    return `penWidth(${width}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_pen'] = function(block: Blockly.Block) {
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('PEN')}();\n`;
+    return `${block.getFieldValue('PEN')}('block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_colour'] = function(block: Blockly.Block) {
     const colour = javascriptGenerator.valueToCode(block, 'COLOUR', Order.NONE) || '\'#000000\'';
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}penColour(${colour});\n`;
+    return `penColour(${colour}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_colour_internal'] = function(block: Blockly.Block) {
     const colour = javascriptGenerator.quote_(block.getFieldValue('COLOUR'));
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}penColour(${colour});\n`;
+    return `penColour(${colour}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_visibility'] = function(block: Blockly.Block) {
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}${block.getFieldValue('VISIBILITY')}();\n`;
+    return `${block.getFieldValue('VISIBILITY')}('block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_print'] = function(block: Blockly.Block) {
     const text = String(javascriptGenerator.valueToCode(block, 'TEXT', Order.NONE) || '\'\'');
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}print(${text});\n`;
+    return `print(${text}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_font'] = function(block: Blockly.Block) {
     const font = javascriptGenerator.quote_(block.getFieldValue('FONT'));
     const fontSize = Number(block.getFieldValue('FONTSIZE'));
     const fontStyle = javascriptGenerator.quote_(block.getFieldValue('FONTSTYLE'));
-    return `${HIGHLIGHT_PREFIX.replace('%1', block.id)}font(${font}, ${fontSize}, ${fontStyle});\n`;
+    return `font(${font}, ${fontSize}, ${fontStyle}, 'block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['turtle_repeat_internal'] = (javascriptGenerator as any)['forBlock']['controls_repeat'];
 }
