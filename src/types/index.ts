@@ -40,7 +40,8 @@ export interface BlocklyConfig {
   startBlocks?: string;
 }
 
-export type GameConfig = MazeConfig | TurtleConfig | PondConfig;
+// THAY ĐỔI: Thêm BirdConfig vào GameConfig
+export type GameConfig = MazeConfig | TurtleConfig | PondConfig | BirdConfig;
 
 export interface MonacoConfig {
   initialCode: string;
@@ -116,10 +117,29 @@ export interface PondConfig {
   avatars: PondAvatarConfig[];
 }
 
+// THÊM MỚI: Định nghĩa cho BirdConfig
+interface Coordinate {
+  x: number;
+  y: number;
+}
+interface Line {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+export interface BirdConfig {
+  type: 'bird';
+  start: Coordinate;
+  startAngle: number;
+  worm: Coordinate | null;
+  nest: Coordinate;
+  walls: Line[];
+}
+
 
 // Placeholders for other game configs
-export interface BirdConfig { /* To be defined */ }
-export interface MusicConfig { /* To be defined */ }
+// export interface MusicConfig { /* To be defined */ }
 
 // =================================================================
 // ==                   SOLUTION CONFIGURATIONS                   ==
@@ -130,7 +150,6 @@ export interface SolutionConfig {
   pixelTolerance?: number;
   solutionBlocks?: string;
   solutionScript?: string;
-  // THÊM MỚI
   optimalBlocks?: number;
   solutionMaxBlocks?: number;
 }
