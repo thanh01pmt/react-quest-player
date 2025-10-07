@@ -3,20 +3,19 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode, Block } from '../../types';
+import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode } from '../../types';
 import type { MazeGameState } from './types';
 import { RobotCharacter } from './components/RobotCharacter';
 import { CameraRig } from './components/CameraRig';
 import BlockComponent from './components/Block';
+import { Collectible } from './components/Collectible';
 
 interface IGameRenderer extends IGameRendererBase {
   cameraMode?: CameraMode;
-  onActionComplete?: () => void; // THÊM MỚI
+  onActionComplete?: () => void;
 }
 
 const TILE_SIZE = 2;
-const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
-
 
 // --- Helper Components ---
 
@@ -31,31 +30,53 @@ const FinishMarker: React.FC<{ position: [number, number, number] }> = ({ positi
     );
 };
 
-// THÊM MỚI: Truyền onActionComplete xuống Scene
-const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotRef: React.RefObject<THREE.Group>; onActionComplete: () => void; }> = ({ gameConfig, gameState, robotRef, onActionComplete }) => {
+const Scene: React.FC<{ 
+  gameConfig: MazeConfig; 
+  gameState: MazeGameState; 
+  onActionComplete: () => void;
+  robotRef: React.RefObject<THREE.Group>; // Receive the ref from parent
+}> = ({ gameConfig, gameState, onActionComplete, robotRef }) => {
+  const activePlayer = gameState.players[gameState.activePlayerId];
+  
   const robotPosition = useMemo(() => {
-    const groundY = (gameState.player.y - 1) * TILE_SIZE;
+    if (!activePlayer) return new THREE.Vector3(0, 0, 0);
+    const groundY = (activePlayer.y - 1) * TILE_SIZE;
     const surfaceY = groundY + TILE_SIZE / 2;
 
     return new THREE.Vector3(
-        gameState.player.x * TILE_SIZE,
+        activePlayer.x * TILE_SIZE,
         surfaceY,
-        gameState.player.z * TILE_SIZE
+        activePlayer.z * TILE_SIZE
     );
-  }, [gameState.player.x, gameState.player.y, gameState.player.z]);
+  }, [activePlayer]);
 
+  if (!activePlayer) return null;
 
   return (
     <group>
-      {gameConfig.blocks?.map((block, index) => (
+      {/* CameraRig is now moved outside of Scene */}
+
+      {gameState.blocks.map((block, index) => (
         <BlockComponent 
-          key={index} 
+          key={`block-${index}`} 
           modelKey={block.modelKey} 
           position={[
             block.position.x * TILE_SIZE, 
             block.position.y * TILE_SIZE, 
             block.position.z * TILE_SIZE
           ]} 
+        />
+      ))}
+
+      {gameState.collectibles.map((item) => (
+        <Collectible
+          key={item.id}
+          collectibleType={item.type}
+          position={[
+            item.position.x * TILE_SIZE,
+            (item.position.y - 1) * TILE_SIZE + TILE_SIZE / 2,
+            item.position.z * TILE_SIZE,
+          ]}
         />
       ))}
 
@@ -68,11 +89,11 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
       />
       
       <RobotCharacter 
-        ref={robotRef}
+        ref={robotRef} // Pass the received ref to the character
         position={robotPosition} 
-        direction={gameState.player.direction}
-        animationName={gameState.player.pose || 'Idle'}
-        onTweenComplete={onActionComplete} // THÊM MỚI: Truyền callback xuống
+        direction={activePlayer.direction}
+        animationName={activePlayer.pose || 'Idle'}
+        onTweenComplete={onActionComplete}
       />
     </group>
   );
@@ -80,35 +101,12 @@ const Scene: React.FC<{ gameConfig: MazeConfig; gameState: MazeGameState; robotR
 
 // --- Main Renderer Component ---
 
-// THÊM MỚI: Nhận onActionComplete
 export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMode = 'Follow', onActionComplete = () => {} }) => {
-    const robotRef = useRef<THREE.Group>(null);
     const mazeState = gameState as MazeGameState;
+    const mazeConfig = gameConfig as MazeConfig;
+    const robotRef = useRef<THREE.Group>(null); // Create the ref here
     
-    const normalizedConfig = useMemo((): MazeConfig => {
-      if (gameConfig.type === 'maze' && gameConfig.map) {
-        const blocks: Block[] = [];
-        for (let y = 0; y < gameConfig.map.length; y++) {
-          for (let x = 0; x < gameConfig.map[y].length; x++) {
-            const cell = gameConfig.map[y][x];
-            if (cell === SquareType.WALL) {
-              blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
-            } else if (cell !== 0) {
-              blocks.push({ modelKey: 'ground.normal', position: { x, y: 0, z: y } });
-            }
-          }
-        }
-        return {
-          ...gameConfig,
-          blocks: blocks,
-          finish: { ...gameConfig.finish, z: gameConfig.finish.y },
-        };
-      }
-      return gameConfig as MazeConfig;
-    }, [gameConfig]);
-
-
-    if (!mazeState || !normalizedConfig) return null;
+    if (!mazeState || !mazeConfig) return null;
 
     return (
       <Canvas
@@ -127,10 +125,15 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
           shadow-mapSize-height={2048}
         />
         
+        {/* CameraRig is now a direct child of Canvas and receives the necessary props */}
         <CameraRig targetRef={robotRef} mode={cameraMode} />
         
-        {/* THÊM MỚI: Truyền onActionComplete vào Scene */}
-        <Scene gameConfig={normalizedConfig} gameState={mazeState} robotRef={robotRef} onActionComplete={onActionComplete} />
+        <Scene 
+          gameConfig={mazeConfig} 
+          gameState={mazeState} 
+          onActionComplete={onActionComplete} 
+          robotRef={robotRef} // Pass the ref down to the Scene
+        />
       </Canvas>
     );
 };

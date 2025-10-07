@@ -35,6 +35,8 @@ export const GameAssets = {
             ice: '/assets/maze/models/ice.glb',
             lava: '/assets/maze/models/lava.glb',
             water: '/assets/maze/models/water.glb',
+            crystal: '/assets/maze/models/crystal.glb', 
+            key: '/assets/maze/models/key.glb',
         },
     },
 };

@@ -1,6 +1,6 @@
 // src/games/maze/types.ts
 
-import type { GameState } from '../../types';
+import type { GameState, Block, Collectible, Interactive } from '../../types';
 
 /**
  * Defines the cardinal directions.
@@ -29,20 +29,23 @@ export type PlayerState = {
 /**
  * The specific game state for the Maze game.
  * Updated to support multiple players, collectibles, and interactives.
+ * The entire world state is now managed here to support in-game world modification.
  */
 export interface MazeGameState extends GameState {
-  // A map of player states, keyed by their unique ID.
-  players: { [id: string]: PlayerState };
+  // World definition (mutable)
+  blocks: Block[];
+  collectibles: Collectible[];
+  interactibles: Interactive[];
 
-  // The ID of the player currently being controlled by the code execution.
+  // Player states
+  players: { [id: string]: PlayerState };
   activePlayerId: string;
   
-  // An array of IDs of collectibles that have been picked up.
+  // Gameplay progress trackers
   collectedIds: string[];
-  
-  // A map storing the current state (e.g., 'on'/'off') of interactive objects.
   interactiveStates: { [id: string]: string };
 
+  // Game execution status
   result: ResultType;
   isFinished: boolean;
 }
