@@ -18,7 +18,6 @@ export class MazeEngine implements IGameEngine {
   constructor(gameConfig: GameConfig) {
     const config = gameConfig as MazeConfig;
     
-    // Normalize players from old/new config format
     const players: PlayerConfig[] = config.players || (config.player ? [{ ...config.player, id: 'player1' }] : []);
     const playerStates: { [id: string]: PlayerState } = {};
     for (const p of players) {
@@ -63,9 +62,9 @@ export class MazeEngine implements IGameEngine {
       for (let y = 0; y < config.map.length; y++) {
         for (let x = 0; x < config.map[y].length; x++) {
           const cell = config.map[y][x];
-          if (cell === 0) { // WALL
+          if (cell === 0) {
             blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
-          } else if (cell !== 0) { // OPEN, START, FINISH
+          } else if (cell !== 0) {
             blocks.push({ modelKey: 'ground.normal', position: { x, y: 0, z: y } });
           }
         }
@@ -76,7 +75,6 @@ export class MazeEngine implements IGameEngine {
   }
 
   getInitialState(): MazeGameState {
-    // Deep copy to prevent mutation of the initial state
     return JSON.parse(JSON.stringify(this.initialGameState));
   }
 
@@ -94,26 +92,19 @@ export class MazeEngine implements IGameEngine {
         });
       };
 
-      // Movement API
       interpreter.setProperty(globalObject, 'moveForward', createWrapper(this.moveForward.bind(this), true));
       interpreter.setProperty(globalObject, 'turnLeft', createWrapper(this.turnLeft.bind(this), true));
       interpreter.setProperty(globalObject, 'turnRight', createWrapper(this.turnRight.bind(this), true));
       interpreter.setProperty(globalObject, 'jump', createWrapper(this.jump.bind(this), true));
-
-      // Conditional API
       interpreter.setProperty(globalObject, 'isPathForward', createWrapper(this.isPath.bind(this, 0), false));
       interpreter.setProperty(globalObject, 'isPathRight', createWrapper(this.isPath.bind(this, 1), false));
       interpreter.setProperty(globalObject, 'isPathLeft', createWrapper(this.isPath.bind(this, 3), false));
       interpreter.setProperty(globalObject, 'notDone', createWrapper(this.notDone.bind(this), false));
-      
-      // New Item API
       interpreter.setProperty(globalObject, 'collectItem', createWrapper(this.collectItem.bind(this), true));
       interpreter.setProperty(globalObject, 'isItemPresent', createWrapper(this.isItemPresent.bind(this), false));
       interpreter.setProperty(globalObject, 'getItemCount', createWrapper(this.getItemCount.bind(this), false));
-      
-      // New Build API (Placeholders)
-      interpreter.setProperty(globalObject, 'placeBlock', createWrapper(() => {}, true)); // Placeholder
-      interpreter.setProperty(globalObject, 'removeBlock', createWrapper(() => {}, true)); // Placeholder
+      interpreter.setProperty(globalObject, 'placeBlock', createWrapper(() => {}, true));
+      interpreter.setProperty(globalObject, 'removeBlock', createWrapper(() => {}, true));
     };
 
     this.interpreter = new Interpreter(userCode, initApi);
@@ -183,18 +174,32 @@ export class MazeEngine implements IGameEngine {
     return !blockSet.has(posStr) && blockSet.has(groundStr);
   }
 
+  private isObstacleAt(x: number, y: number, z: number): boolean {
+    const blockSet = new Set(this.currentState.blocks.map(b => `${b.position.x},${b.position.y},${b.position.z}`));
+    return blockSet.has(`${x},${y},${z}`);
+  }
+
   private moveForward(): void {
     const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
+    // Check for a wall at the same height
+    if (this.isObstacleAt(nextX, player.y, nextZ)) {
+        player.pose = 'Bump';
+        return;
+    }
+
     let targetY: number | null = null;
-    if (this.isWalkable(nextX, player.y, nextZ)) {
+    if (this.isWalkable(nextX, player.y, nextZ)) { // Path is straight ahead
       targetY = player.y;
-    } else if (this.isWalkable(nextX, player.y - 1, nextZ)) {
+    } else if (this.isWalkable(nextX, player.y - 1, nextZ)) { // Path is one step down
       targetY = player.y - 1;
     }
 
-    if (targetY === null) throw new Error('Hit a wall');
+    if (targetY === null) {
+      player.pose = 'Bump'; // No valid path forward (e.g., edge of a cliff)
+      return;
+    }
 
     player.pose = 'Walking';
     player.x = nextX;
@@ -212,7 +217,7 @@ export class MazeEngine implements IGameEngine {
         player.y = player.y + 1;
         player.z = nextZ;
     } else {
-        throw new Error('Cannot jump there');
+        player.pose = 'Bump'; // Cannot jump there (obstacle or no ground)
     }
   }
 
@@ -255,8 +260,6 @@ export class MazeEngine implements IGameEngine {
     return d as Direction;
   }
 
-  // --- New Item and Build APIs ---
-
   private collectItem(): boolean {
     const player = this.getActivePlayer();
     const itemIndex = this.currentState.collectibles.findIndex(c => 
@@ -269,7 +272,6 @@ export class MazeEngine implements IGameEngine {
     if (itemIndex !== -1) {
       const item = this.currentState.collectibles[itemIndex];
       this.currentState.collectedIds.push(item.id);
-      // In a unified model, we remove the item from the world
       this.currentState.collectibles.splice(itemIndex, 1);
       return true;
     }

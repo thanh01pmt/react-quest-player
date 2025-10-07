@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, forwardRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
+import { gsap } from 'gsap';
 import type { Direction } from '../types';
 
 const ROBOT_MODEL_PATH = '/assets/maze/models/draco-robot.glb';
@@ -13,6 +14,7 @@ const ANIMATION_MAP: { [key: string]: string } = {
   Walking: 'Walking',
   Victory: 'Wave',
   Jumping: 'Jump',
+  // No animation for Bump, it will be handled by code
 };
 
 const ONE_SHOT_ANIMATIONS = ['Victory', 'Jumping'];
@@ -32,23 +34,21 @@ interface RobotCharacterProps {
 }
 
 const TILE_SIZE = 2;
+const BUMP_DISTANCE = TILE_SIZE * 0.15;
+const BUMP_DURATION = 0.15;
 
 export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
   ({ position, direction, animationName, onTweenComplete }, ref) => {
+    const groupRef = ref as React.RefObject<THREE.Group>;
     const [effectiveAnimation, setEffectiveAnimation] = useState('Idle');
 
     const { scene, animations } = useGLTF(ROBOT_MODEL_PATH);
-    const { actions, mixer } = useAnimations(animations, ref as React.RefObject<THREE.Group>);
+    const { actions, mixer } = useAnimations(animations, groupRef);
 
     const currentPosition = useRef(new THREE.Vector3().copy(position));
     const targetPosition = useRef(new THREE.Vector3().copy(position));
-    const startTime = useRef(0);
     const isTweening = useRef(false);
     const tweenDuration = 0.8;
-
-    useEffect(() => {
-      console.log('Available animations in draco-robot.glb:', animations.map(a => a.name));
-    }, [animations]);
 
     useEffect(() => {
       const targetAnimationName = ANIMATION_MAP[effectiveAnimation] || ANIMATION_MAP.Idle;
@@ -62,16 +62,12 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
       const activeAction = Object.values(actions).find(a => a && a.isRunning());
       
       if (newAction !== activeAction) {
-        if (activeAction) {
-          activeAction.fadeOut(0.2);
-        }
+        if (activeAction) activeAction.fadeOut(0.2);
 
-        // SỬA LỖI: Chỉ điều chỉnh timeScale cho animation 'Walking'
         if (effectiveAnimation === 'Walking') {
           const clipDuration = newAction.getClip().duration;
           newAction.timeScale = clipDuration / tweenDuration;
         } else {
-          // Các animation khác chạy ở tốc độ gốc
           newAction.timeScale = 1;
         }
 
@@ -98,15 +94,40 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
     }, [effectiveAnimation, actions, mixer, onTweenComplete]);
 
     useEffect(() => {
-      const group = (ref as React.RefObject<THREE.Group>).current;
+      const group = groupRef.current;
       if (!group) return;
 
+      // Kill any previous tweens on this object to avoid conflicts
+      gsap.killTweensOf(group.position);
+      isTweening.current = false;
+
       const isMoveAnimation = ['Walking', 'Jumping'].includes(animationName);
+      
+      if (animationName === 'Bump') {
+        const bumpOffset = new THREE.Vector3(0, 0, BUMP_DISTANCE).applyQuaternion(group.quaternion);
+        const bumpPosition = new THREE.Vector3().copy(group.position).add(bumpOffset);
+        
+        // Use GSAP for a quick bump and return animation
+        gsap.to(group.position, {
+          x: bumpPosition.x,
+          y: bumpPosition.y,
+          z: bumpPosition.z,
+          duration: BUMP_DURATION,
+          ease: 'power2.out',
+          yoyo: true, // Go back to the start
+          repeat: 1,
+          onComplete: () => {
+            group.position.copy(position); // Ensure final position is correct
+            setEffectiveAnimation('Idle');
+            onTweenComplete();
+          }
+        });
+        return; // Stop further processing for Bump
+      }
 
       if (isMoveAnimation && !group.position.equals(position)) {
         currentPosition.current.copy(group.position);
         targetPosition.current.copy(position);
-        startTime.current = performance.now() / 1000;
         isTweening.current = true;
         setEffectiveAnimation(animationName);
       } else {
@@ -118,42 +139,41 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
           onTweenComplete();
         }
       }
-    }, [position, animationName, onTweenComplete]);
+    }, [position, animationName, onTweenComplete, groupRef]);
 
     useFrame((state, delta) => {
-      const group = (ref as React.RefObject<THREE.Group>).current;
+      const group = groupRef.current;
       if (!group) return;
 
       const targetQuaternion = new THREE.Quaternion().setFromEuler(
         new THREE.Euler(0, DIRECTION_TO_ROTATION[direction], 0)
       );
-      group.quaternion.slerp(targetQuaternion, delta * 10);
+      if (!group.quaternion.equals(targetQuaternion)) {
+        group.quaternion.slerp(targetQuaternion, delta * 10);
+      }
 
       if (isTweening.current) {
-        const time = performance.now() / 1000;
-        let t = (time - startTime.current) / tweenDuration;
+        const t = Math.min(1, (state.clock.elapsedTime * 1000 - (gsap.timeline().time() * 1000 - tweenDuration * 1000)) / (tweenDuration * 1000));
         
-        if (t >= 1) {
-          t = 1;
-          isTweening.current = false;
-          onTweenComplete();
-          if (effectiveAnimation === 'Walking') {
+        gsap.to(group.position, {
+          x: targetPosition.current.x,
+          y: targetPosition.current.y,
+          z: targetPosition.current.z,
+          duration: tweenDuration,
+          ease: 'linear',
+          onUpdate: () => {
+            if (effectiveAnimation === 'Jumping') {
+              const progress = gsap.getProperty(group.position, "x") / targetPosition.current.x; // Simplified progress
+              const arcHeight = TILE_SIZE / 2;
+              group.position.y += Math.sin(progress * Math.PI) * arcHeight;
+            }
+          },
+          onComplete: () => {
+            isTweening.current = false;
             setEffectiveAnimation('Idle');
+            onTweenComplete();
           }
-        }
-
-        const lerpedPosition = new THREE.Vector3().lerpVectors(
-          currentPosition.current,
-          targetPosition.current,
-          t
-        );
-
-        group.position.copy(lerpedPosition);
-
-        if (effectiveAnimation === 'Jumping') {
-          const arcHeight = TILE_SIZE / 2;
-          group.position.y += Math.sin(t * Math.PI) * arcHeight;
-        }
+        });
       }
     });
     
@@ -167,7 +187,7 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
     }, [scene]);
 
     return (
-      <group ref={ref} dispose={null}>
+      <group ref={groupRef} dispose={null}>
         <primitive 
           object={scene} 
           scale={TILE_SIZE/2*0.68}
