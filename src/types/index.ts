@@ -40,7 +40,6 @@ export interface BlocklyConfig {
   startBlocks?: string;
 }
 
-// THAY ĐỔI: Thêm BirdConfig vào GameConfig
 export type GameConfig = MazeConfig | TurtleConfig | PondConfig | BirdConfig;
 
 export interface MonacoConfig {
@@ -86,16 +85,49 @@ export interface Block {
   position: Position3D;
 }
 
+// --- New Interfaces for Maze Game Features ---
+
+export interface Collectible {
+  id: string;
+  type: 'crystal' | 'key';
+  position: Position3D;
+}
+
+export interface Interactive {
+  id: string;
+  type: 'switch';
+  position: Position3D;
+  toggles: string[];
+  initialState: 'on' | 'off';
+}
+
+export interface PlayerConfig {
+  id: string;
+  start: {
+    x: number;
+    y: number;
+    z?: number;
+    direction: 0 | 1 | 2 | 3;
+  };
+}
+
+// --- Updated MazeConfig ---
+
 export interface MazeConfig {
   type: 'maze';
   renderer?: '2d' | '3d';
   map?: number[][]; 
   blocks?: Block[];
-  player: {
-    start: { x: number, y: number, z?: number, direction: 0 | 1 | 2 | 3 };
-  };
+  
+  player?: PlayerConfig;
+  players?: PlayerConfig[];
+  
+  collectibles?: Collectible[];
+  interactibles?: Interactive[];
+
   finish: { x: number, y: number, z?: number };
 }
+
 
 export interface TurtleConfig {
   type: 'turtle';
@@ -117,7 +149,6 @@ export interface PondConfig {
   avatars: PondAvatarConfig[];
 }
 
-// THÊM MỚI: Định nghĩa cho BirdConfig
 interface Coordinate {
   x: number;
   y: number;
