@@ -337,6 +337,7 @@ export const QuestPlayer: React.FC = () => {
                                 solutionCommands={solutionCommands}
                                 cameraMode={cameraMode}
                                 onActionComplete={handleActionComplete}
+                                engineRef={engineRef}
                             />
                             <div className="stats-overlay">
                                 {displayStats.blockCount != null && displayStats.maxBlocks != null && (

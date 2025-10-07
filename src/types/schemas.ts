@@ -31,13 +31,28 @@ const collectibleSchema = z.object({
   position: position3DSchema,
 });
 
-const interactiveSchema = z.object({
+// New discriminated union for interactive objects
+const switchSchema = z.object({
+  type: z.literal('switch'),
   id: z.string(),
-  type: z.enum(['switch']),
   position: position3DSchema,
-  toggles: z.array(z.string()), // IDs of other objects (e.g., walls) this interactive affects
+  toggles: z.array(z.string()),
   initialState: z.enum(['on', 'off']).default('off'),
 });
+
+const portalSchema = z.object({
+  type: z.literal('portal'),
+  id: z.string(),
+  position: position3DSchema,
+  color: z.enum(['blue', 'green', 'orange', 'pink']),
+  targetId: z.string(),
+  exitDirection: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).optional(),
+});
+
+const interactiveSchema = z.discriminatedUnion('type', [
+  switchSchema,
+  portalSchema,
+]);
 
 const playerConfigSchema = z.object({
   id: z.string(),
@@ -63,11 +78,9 @@ const mazeConfigSchema = z.object({
   map: z.array(z.array(z.number())).optional(),
   blocks: z.array(blockSchema).optional(),
   
-  // Support for one player (backward compatibility) or multiple players
   player: playerConfigSchema.optional(),
   players: z.array(playerConfigSchema).optional(),
   
-  // New features
   collectibles: z.array(collectibleSchema).optional(),
   interactibles: z.array(interactiveSchema).optional(),
 

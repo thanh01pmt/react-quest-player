@@ -74,6 +74,8 @@ export type CameraMode = 'Follow' | 'TopDown' | 'Free';
 // ==                 GAME-SPECIFIC CONFIGURATIONS                ==
 // =================================================================
 
+export type Direction = 0 | 1 | 2 | 3;
+
 export interface Position3D {
   x: number;
   y: number;
@@ -93,13 +95,24 @@ export interface Collectible {
   position: Position3D;
 }
 
-export interface Interactive {
-  id: string;
+export interface Switch {
   type: 'switch';
+  id: string;
   position: Position3D;
   toggles: string[];
   initialState: 'on' | 'off';
 }
+
+export interface Portal {
+  type: 'portal';
+  id: string;
+  position: Position3D;
+  color: 'blue' | 'green' | 'orange' | 'pink';
+  targetId: string;
+  exitDirection?: Direction;
+}
+
+export type Interactive = Switch | Portal;
 
 export interface PlayerConfig {
   id: string;
@@ -107,7 +120,7 @@ export interface PlayerConfig {
     x: number;
     y: number;
     z?: number;
-    direction: 0 | 1 | 2 | 3;
+    direction: Direction;
   };
 }
 

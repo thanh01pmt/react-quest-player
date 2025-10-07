@@ -1,17 +1,20 @@
 // src/games/maze/types.ts
 
-import type { GameState, Block, Collectible, Interactive } from '../../types';
-
-/**
- * Defines the cardinal directions.
- * 0: North, 1: East, 2: South, 3: West
- */
-export type Direction = 0 | 1 | 2 | 3;
+import type { GameState, Block, Collectible, Interactive, Direction } from '../../types';
 
 /**
  * Defines the possible outcomes of a game execution.
  */
 export type ResultType = 'unset' | 'success' | 'failure' | 'timeout' | 'error';
+
+/**
+ * Represents an entry in the unified world grid for fast physics lookups.
+ */
+export interface WorldGridCell {
+  type: 'block' | 'collectible' | 'portal' | 'switch';
+  isSolid: boolean; // True if it blocks movement (e.g., a wall), false otherwise.
+  id?: string;
+}
 
 /**
  * Defines the state of a single player character.
@@ -24,18 +27,26 @@ export type PlayerState = {
   z: number; // Represents depth
   direction: Direction;
   pose?: string; // For special animations like victory dance
+  
+  teleportTarget?: {
+    x: number;
+    y: number;
+    z: number;
+    direction: Direction;
+  }
 };
 
 /**
  * The specific game state for the Maze game.
- * Updated to support multiple players, collectibles, and interactives.
- * The entire world state is now managed here to support in-game world modification.
  */
 export interface MazeGameState extends GameState {
   // World definition (mutable)
   blocks: Block[];
   collectibles: Collectible[];
   interactibles: Interactive[];
+
+  // A flattened, fast-lookup map of the world state for physics checks.
+  worldGrid: Record<string, WorldGridCell>;
 
   // Player states
   players: { [id: string]: PlayerState };

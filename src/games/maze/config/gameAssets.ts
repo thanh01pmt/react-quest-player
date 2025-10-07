@@ -29,14 +29,21 @@ export const GameAssets = {
             brick04: '/assets/maze/models/wallBrick04.glb',
             brick05: '/assets/maze/models/wallBrick05.glb',
             brick06: '/assets/maze/models/wallBrick06.glb',
-            stone: '/assets/maze/models/wallStone.glb',
+            stone01: '/assets/maze/models/wallStone.glb',
+        },
+        water: {
+            water01: '/assets/maze/models/water.glb',
+        },
+        lava: {
+            lava01: '/assets/maze/models/lava.glb',
+        },
+        ice: {
+            ice01: '/assets/maze/models/ice.glb',
         },
         misc: {
-            ice: '/assets/maze/models/ice.glb',
-            lava: '/assets/maze/models/lava.glb',
-            water: '/assets/maze/models/water.glb',
-            crystal: '/assets/maze/models/crystal.glb', 
+            crystal: '/assets/maze/models/crystal.glb',
             key: '/assets/maze/models/key.glb',
+            portal: '/assets/maze/models/portal.glb',
         },
     },
 };

@@ -3,16 +3,18 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode } from '../../types';
+import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode, IGameEngine } from '../../types';
 import type { MazeGameState } from './types';
 import { RobotCharacter } from './components/RobotCharacter';
 import { CameraRig } from './components/CameraRig';
 import BlockComponent from './components/Block';
 import { Collectible } from './components/Collectible';
+import { Portal } from './components/Portal';
 
 interface IGameRenderer extends IGameRendererBase {
   cameraMode?: CameraMode;
   onActionComplete?: () => void;
+  engineRef?: React.RefObject<IGameEngine>; // Add engineRef prop
 }
 
 const TILE_SIZE = 2;
@@ -34,12 +36,18 @@ const Scene: React.FC<{
   gameConfig: MazeConfig; 
   gameState: MazeGameState; 
   onActionComplete: () => void;
-  robotRef: React.RefObject<THREE.Group>; // Receive the ref from parent
-}> = ({ gameConfig, gameState, onActionComplete, robotRef }) => {
+  robotRef: React.RefObject<THREE.Group>;
+  engineRef?: React.RefObject<IGameEngine>; // Receive engineRef
+}> = ({ gameConfig, gameState, onActionComplete, robotRef, engineRef }) => {
   const activePlayer = gameState.players[gameState.activePlayerId];
   
   const robotPosition = useMemo(() => {
     if (!activePlayer) return new THREE.Vector3(0, 0, 0);
+    // For TeleportIn, the visual position should be the target, not the old logical position
+    if (activePlayer.pose === 'TeleportIn' && activePlayer.teleportTarget) {
+        const { x, y, z } = activePlayer.teleportTarget;
+        return new THREE.Vector3(x * TILE_SIZE, (y-1) * TILE_SIZE + TILE_SIZE/2, z*TILE_SIZE);
+    }
     const groundY = (activePlayer.y - 1) * TILE_SIZE;
     const surfaceY = groundY + TILE_SIZE / 2;
 
@@ -50,12 +58,17 @@ const Scene: React.FC<{
     );
   }, [activePlayer]);
 
+  const handleTeleportOutComplete = () => {
+    if (engineRef?.current && 'completeTeleport' in engineRef.current) {
+      (engineRef.current as any).completeTeleport();
+      // This will trigger a re-render with the new state (pose: 'TeleportIn')
+    }
+  };
+
   if (!activePlayer) return null;
 
   return (
     <group>
-      {/* CameraRig is now moved outside of Scene */}
-
       {gameState.blocks.map((block, index) => (
         <BlockComponent 
           key={`block-${index}`} 
@@ -80,6 +93,23 @@ const Scene: React.FC<{
         />
       ))}
 
+      {gameState.interactibles.map((item) => {
+        if (item.type === 'portal') {
+          return (
+            <Portal
+              key={item.id}
+              color={item.color}
+              position={[
+                item.position.x * TILE_SIZE,
+                (item.position.y - 0.54) * TILE_SIZE + 0.1, 
+                item.position.z * TILE_SIZE,
+              ]}
+            />
+          );
+        }
+        return null;
+      })}
+
       <FinishMarker 
         position={[
           gameConfig.finish.x * TILE_SIZE, 
@@ -89,11 +119,12 @@ const Scene: React.FC<{
       />
       
       <RobotCharacter 
-        ref={robotRef} // Pass the received ref to the character
+        ref={robotRef}
         position={robotPosition} 
         direction={activePlayer.direction}
         animationName={activePlayer.pose || 'Idle'}
         onTweenComplete={onActionComplete}
+        onTeleportOutComplete={handleTeleportOutComplete}
       />
     </group>
   );
@@ -101,10 +132,10 @@ const Scene: React.FC<{
 
 // --- Main Renderer Component ---
 
-export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMode = 'Follow', onActionComplete = () => {} }) => {
+export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMode = 'Follow', onActionComplete = () => {}, engineRef }) => {
     const mazeState = gameState as MazeGameState;
     const mazeConfig = gameConfig as MazeConfig;
-    const robotRef = useRef<THREE.Group>(null); // Create the ref here
+    const robotRef = useRef<THREE.Group>(null);
     
     if (!mazeState || !mazeConfig) return null;
 
@@ -125,14 +156,14 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
           shadow-mapSize-height={2048}
         />
         
-        {/* CameraRig is now a direct child of Canvas and receives the necessary props */}
         <CameraRig targetRef={robotRef} mode={cameraMode} />
         
         <Scene 
           gameConfig={mazeConfig} 
           gameState={mazeState} 
           onActionComplete={onActionComplete} 
-          robotRef={robotRef} // Pass the ref down to the Scene
+          robotRef={robotRef}
+          engineRef={engineRef} // Pass it down to the scene
         />
       </Canvas>
     );

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { IGameEngine, GameState, Quest, StepResult, ExecutionMode } from '../../../types';
 import type { TurtleEngine } from '../../../games/turtle/TurtleEngine';
 import type { TurtleRendererHandle } from '../../../games/turtle/TurtleRenderer';
+import type { IMazeEngine } from '../../../games/maze/MazeEngine';
 
 const BATCH_FRAME_DELAY = 50;
 const STEP_FRAME_DELAY = 10;
@@ -35,8 +36,22 @@ export const useGameLoop = (
   const isWaitingForAnimation = useRef(false);
 
   const handleActionComplete = useCallback(() => {
+    const engine = engineRef.current;
+    if (engine?.gameType === 'maze') {
+      const mazeEngine = engine as IMazeEngine;
+      if (mazeEngine.triggerInteraction()) {
+        // An interaction (like teleport) has started. The engine state is updated.
+        // We need to re-render to show the 'TeleportOut' pose and wait for its animation to complete.
+        setCurrentGameState(JSON.parse(JSON.stringify(mazeEngine.getInitialState())));
+        isWaitingForAnimation.current = true; // Stay in waiting state for the new animation
+        return; // Stop here, don't proceed to the next step yet
+      }
+    }
+    
+    // If no interaction was triggered, or not a maze game, unlock the loop.
     isWaitingForAnimation.current = false;
-  }, []);
+
+  }, [engineRef]);
 
   const executeSingleStep = useCallback(() => {
     const engine = engineRef.current;
@@ -45,12 +60,9 @@ export const useGameLoop = (
     const handleGameOver = (finalEngineState: GameState) => {
       let isSuccess = false;
       
-      // SỬA LỖI: Kết hợp type guard và ép kiểu tường minh
       if (engine.gameType === 'turtle' && rendererRef.current?.getCanvasData) {
         const { userImageData, solutionImageData } = rendererRef.current.getCanvasData();
         if (userImageData && solutionImageData) {
-          // Type guard `if` đảm bảo an toàn lúc chạy.
-          // Ép kiểu `as` để "bảo" TypeScript rằng chúng ta biết rõ kiểu dữ liệu.
           isSuccess = (engine as TurtleEngine).verifySolution(userImageData, solutionImageData, questData.solution.pixelTolerance || 0);
         }
       } else {
@@ -76,7 +88,12 @@ export const useGameLoop = (
           setHighlightedBlockId(result.highlightedBlockId);
         }
         if (result.done) {
-          handleGameOver(result.state);
+          // If the program finishes, wait for the final animation before checking game over.
+          // This ensures the character reaches the finish line visually.
+          isWaitingForAnimation.current = true;
+          setTimeout(() => {
+            handleGameOver(result.state);
+          }, 800); // Wait for move animation duration
           return false;
         }
       } else {
