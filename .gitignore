@@ -26,3 +26,6 @@ dist-ssr
 # Python track files and folders
 /tracked_files
 /tracked_files/*
+
+/ngtati_files
+/ngtati_files/*
