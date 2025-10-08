@@ -82,8 +82,6 @@ export const useGameLoop = (
           }, 800); // Wait for move animation duration
           return false;
         }
-      } else {
-        isWaitingForAnimation.current = false;
       }
     } else if (executionLog) {
       isWaitingForAnimation.current = false; 

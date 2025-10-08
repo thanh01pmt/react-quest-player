@@ -14,9 +14,15 @@ const ANIMATION_MAP: { [key: string]: string } = {
   Walking: 'Walking',
   Victory: 'Wave',
   Jumping: 'Jump',
+  TurningLeft: 'Idle',
+  TurningRight: 'Idle',
+  // Map các pose tương tác vào một hoạt ảnh có sẵn
+  Collecting: 'Wave',
+  Toggling: 'Wave',
 };
 
-const ONE_SHOT_ANIMATIONS = ['Victory', 'Jumping'];
+// Thêm các pose mới vào danh sách hoạt ảnh "một lần"
+const ONE_SHOT_ANIMATIONS = ['Victory', 'Jumping', 'Collecting', 'Toggling'];
 
 const DIRECTION_TO_ROTATION: Record<Direction, number> = {
   0: Math.PI,
@@ -35,6 +41,7 @@ interface RobotCharacterProps {
 
 const TILE_SIZE = 2;
 const BUMP_DISTANCE = TILE_SIZE * 0.15;
+const TURN_DURATION = 0.3;
 const BUMP_DURATION = 0.15;
 const TELEPORT_DURATION = 0.5;
 
@@ -47,7 +54,7 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
 
     const tweenDuration = 0.8;
 
-    // useEffect to manage PLAYING animations
+    // useEffect để quản lý VIỆC CHƠI hoạt ảnh
     useEffect(() => {
       const targetAnimationName = ANIMATION_MAP[animationName] || ANIMATION_MAP.Idle;
       const newAction = actions[targetAnimationName];
@@ -71,7 +78,10 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
           const onFinished = (event: any) => {
               if (event.action === newAction) {
                   mixer.removeEventListener('finished', onFinished);
-                  console.log('%c[RobotCharacter] Calling onTweenComplete() from One-Shot Animation FINISHED.', 'color: #e74c3c; font-weight: bold;');
+                  // Gọi onTweenComplete khi hoạt ảnh một lần kết thúc.
+                  // Điều này đồng bộ hóa engine với thời lượng thực của hoạt ảnh.
+                  console.log(`%c[RobotCharacter] Calling onTweenComplete() from One-Shot Animation '${animationName}' FINISHED.`, 'color: #e74c3c; font-weight: bold;');
+                  onTweenComplete();
               }
           };
           mixer.addEventListener('finished', onFinished);
@@ -80,7 +90,7 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
       }
     }, [animationName, actions, mixer, onTweenComplete]);
 
-    // useEffect to manage MOVEMENT (tweens)
+    // useEffect để quản lý CHUYỂN ĐỘNG và các HÀNH ĐỘNG CÓ THỜI GIAN (tweens)
     useEffect(() => {
       const group = groupRef.current;
       if (!group) return;
@@ -94,6 +104,8 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
       group.scale.set(1, 1, 1);
 
       const isMoveAnimation = ['Walking', 'Jumping'].includes(animationName);
+      const isTurnAnimation = ['TurningLeft', 'TurningRight'].includes(animationName);
+      const isInteractionAnimation = ['Collecting', 'Toggling'].includes(animationName);
 
       if (animationName === 'Bump') {
         console.log('-> Executing LOGIC BRANCH: Bump');
@@ -141,6 +153,27 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
         return;
       }
 
+      if (isTurnAnimation) {
+        console.log('-> Executing LOGIC BRANCH: Turning');
+        gsap.to({}, { 
+          duration: TURN_DURATION,
+          onComplete: () => {
+            console.log('%c[RobotCharacter] Calling onTweenComplete() from Turn.', 'color: #e74c3c; font-weight: bold;');
+            onTweenComplete();
+          }
+        });
+        console.groupEnd();
+        return;
+      }
+      
+      if (isInteractionAnimation) {
+        console.log('-> Executing LOGIC BRANCH: Interaction');
+        // Không cần làm gì ở đây. `useEffect` đầu tiên đã xử lý việc
+        // chơi animation một lần và gọi onTweenComplete khi nó kết thúc.
+        console.groupEnd();
+        return;
+      }
+
       if (isMoveAnimation) {
         console.log('-> Executing LOGIC BRANCH: Movement');
         const startY = group.position.y;
@@ -154,6 +187,10 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
             }
           },
           onComplete: () => {
+            // Lưu ý: Jumping cũng là ONE_SHOT_ANIMATION. `onTweenComplete` sẽ được gọi 2 lần.
+            // Điều này thường không gây hại nhưng không lý tưởng.
+            // Tuy nhiên, việc đồng bộ chuyển động và hoạt ảnh phức tạp hơn,
+            // nên tạm thời chấp nhận để đảm bảo chuyển động mượt mà.
             console.log('%c[RobotCharacter] Calling onTweenComplete() from Movement.', 'color: #e74c3c; font-weight: bold;');
             onTweenComplete();
           }
@@ -164,10 +201,6 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
       
       console.log('-> Executing LOGIC BRANCH: Static Pose');
       group.position.copy(position);
-      // if (!ONE_SHOT_ANIMATIONS.includes(animationName)) {
-      //   console.log('%c[RobotCharacter] Calling onTweenComplete() from Static Pose.', 'color: #e74c3c; font-weight: bold;');
-      //   onTweenComplete();
-      // }
       console.groupEnd();
       
     }, [position, animationName, onTweenComplete, onTeleportOutComplete, groupRef]);

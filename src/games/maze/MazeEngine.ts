@@ -33,7 +33,6 @@ export class MazeEngine implements IMazeEngine {
         z: p.start.z ?? p.start.y,
         direction: p.start.direction ?? 1,
         pose: 'Idle',
-        // THÊM: Theo dõi vị trí trước đó để phát hiện di chuyển
         xPrev: p.start.x,
         zPrev: p.start.z ?? p.start.y,
       };
@@ -145,12 +144,20 @@ export class MazeEngine implements IMazeEngine {
   
   step(): StepResult {
     const currentPlayerPose = this.getActivePlayer().pose;
-    if (currentPlayerPose && !['Idle', 'Walking'].includes(currentPlayerPose)) {
+    
+    const oneShotPoses = [
+      'TeleportIn', 
+      'Bump', 
+      'Victory', 
+      'TurningLeft', 
+      'TurningRight',
+      'Collecting',
+      'Toggling'
+    ];
+
+    if (currentPlayerPose && oneShotPoses.includes(currentPlayerPose)) {
       const stateToReturn = JSON.parse(JSON.stringify(this.currentState));
-      
-      if (currentPlayerPose === 'TeleportIn' || currentPlayerPose === 'Bump' || currentPlayerPose === 'Victory') {
-        this.getActivePlayer().pose = 'Idle';
-      }
+      this.getActivePlayer().pose = 'Idle';
       
       return {
         done: this.currentState.isFinished,
@@ -239,7 +246,6 @@ export class MazeEngine implements IMazeEngine {
     return !this._isSolidAt(x, y, z) && this._isGroundAt(x, y - 1, z);
   }
 
-  // THAY ĐỔI: Cập nhật xPrev và zPrev trước khi di chuyển
   private moveForward(): void {
     const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
@@ -261,7 +267,6 @@ export class MazeEngine implements IMazeEngine {
       return;
     }
 
-    // Lưu vị trí cũ trước khi di chuyển
     player.xPrev = player.x;
     player.zPrev = player.z;
 
@@ -271,13 +276,11 @@ export class MazeEngine implements IMazeEngine {
     player.z = nextZ;
   }
 
-  // THAY ĐỔI: Cập nhật xPrev và zPrev trước khi nhảy
   private jump(): void {
     const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
     if (this._isWalkable(nextX, player.y + 1, nextZ)) {
-      // Lưu vị trí cũ trước khi nhảy
       player.xPrev = player.x;
       player.zPrev = player.z;
 
@@ -292,12 +295,12 @@ export class MazeEngine implements IMazeEngine {
 
   private turnLeft(): void {
     this.getActivePlayer().direction = this.constrainDirection(this.getActivePlayer().direction - 1);
-    this.getActivePlayer().pose = 'Idle';
+    this.getActivePlayer().pose = 'TurningLeft';
   }
 
   private turnRight(): void {
     this.getActivePlayer().direction = this.constrainDirection(this.getActivePlayer().direction + 1);
-    this.getActivePlayer().pose = 'Idle';
+    this.getActivePlayer().pose = 'TurningRight';
   }
 
   private isPath(relativeDirection: 0 | 1 | 3): boolean {
@@ -333,9 +336,11 @@ export class MazeEngine implements IMazeEngine {
 
     if (cell && cell.type === 'collectible' && cell.id && !this.currentState.collectedIds.includes(cell.id)) {
       this.currentState.collectedIds.push(cell.id);
-      
       this.currentState.collectibles = this.currentState.collectibles.filter(c => c.id !== cell.id);
       this.currentState.worldGrid = this._buildWorldGrid(this.currentState);
+      
+      player.pose = 'Collecting';
+
       return true;
     }
     return false;
@@ -369,18 +374,19 @@ export class MazeEngine implements IMazeEngine {
     if (cell && cell.type === 'switch' && cell.id) {
         const currentState = this.currentState.interactiveStates[cell.id];
         this.currentState.interactiveStates[cell.id] = currentState === 'on' ? 'off' : 'on';
+
+        player.pose = 'Toggling';
+
         return true;
     }
     return false;
   }
 
-  // SỬA ĐỔI: Chỉ trigger portal nếu nhân vật VỪA MỚI di chuyển vào (vị trí trước khác vị trí hiện tại)
   public triggerInteraction(): boolean {
     const player = this.getActivePlayer();
     const cell = this.currentState.worldGrid[`${player.x},${player.y},${player.z}`];
     
     if (cell && cell.type === 'portal') {
-      // Kiểm tra xem nhân vật có VỪA MỚI di chuyển vào portal không
       const justMoved = (player.xPrev !== player.x) || (player.zPrev !== player.z);
       
       if (justMoved) {
@@ -391,7 +397,6 @@ export class MazeEngine implements IMazeEngine {
     return false;
   }
 
-  // THAY ĐỔI: Sau khi teleport, cập nhật xPrev/Z để không trigger lại
   public completeTeleport(): void {
     const player = this.getActivePlayer();
     const posKey = `${player.x},${player.y},${player.z}`;
@@ -407,7 +412,6 @@ export class MazeEngine implements IMazeEngine {
           player.z = targetPortal.position.z;
           player.direction = targetPortal.exitDirection ?? player.direction;
           
-          // QUAN TRỌNG: Đặt xPrev/Z bằng vị trí hiện tại để portal không trigger lại
           player.xPrev = player.x;
           player.zPrev = player.z;
           
