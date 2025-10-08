@@ -31,8 +31,11 @@ export class MazeEngine implements IMazeEngine {
         x: p.start.x,
         y: p.start.y ?? 1,
         z: p.start.z ?? p.start.y,
-        direction: p.start.direction ?? 1, // Default to 1 (East) if not provided
-        pose: 'Idle'
+        direction: p.start.direction ?? 1,
+        pose: 'Idle',
+        // THÊM: Theo dõi vị trí trước đó để phát hiện di chuyển
+        xPrev: p.start.x,
+        zPrev: p.start.z ?? p.start.y,
       };
     }
 
@@ -139,18 +142,58 @@ export class MazeEngine implements IMazeEngine {
     this.interpreter = new Interpreter(userCode, initApi);
   }
   
-// src/games/maze/MazeEngine.ts
+  step(): StepResult {
+    const currentPlayerPose = this.getActivePlayer().pose;
+    if (currentPlayerPose && !['Idle', 'Walking'].includes(currentPlayerPose)) {
+      const stateToReturn = JSON.parse(JSON.stringify(this.currentState));
+      
+      if (currentPlayerPose === 'TeleportIn' || currentPlayerPose === 'Bump' || currentPlayerPose === 'Victory') {
+        this.getActivePlayer().pose = 'Idle';
+      }
+      
+      return {
+        done: this.currentState.isFinished,
+        state: stateToReturn,
+        highlightedBlockId: this.highlightedBlockId
+      };
+    }
 
-step(): StepResult {
-  // SỬA ĐỔI: Thêm một bước kiểm tra ở đầu
-  // Nếu một pose đặc biệt (không phải Idle/Walking) đã được thiết lập từ trước,
-  // hãy trả về trạng thái đó ngay lập tức và coi đó là một "hành động".
-  const currentPlayerPose = this.getActivePlayer().pose;
-  if (currentPlayerPose && !['Idle', 'Walking'].includes(currentPlayerPose)) {
-    // Đặt lại pose thành Idle để nó không bị lặp lại ở lần step tiếp theo,
-    // trừ khi đó là một hoạt ảnh cần thời gian để hoàn thành.
-    if (currentPlayerPose === 'TeleportIn' || currentPlayerPose === 'Bump' || currentPlayerPose === 'Victory') {
-      this.getActivePlayer().pose = 'Idle';
+    if (!this.interpreter || this.currentState.isFinished) return null;
+
+    this.highlightedBlockId = null;
+    this.executedAction = false;
+    let hasMoreCode = true;
+
+    while (hasMoreCode && !this.executedAction) {
+      try {
+        hasMoreCode = this.interpreter.step();
+      } catch (e) {
+        this.currentState.result = 'error';
+        this.currentState.isFinished = true;
+        return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
+      }
+    }
+
+    if (!hasMoreCode && !this.executedAction) {
+      this.currentState.isFinished = true;
+      if (this.notDone()) {
+        this.currentState.result = 'failure';
+      } else {
+        this.currentState.result = 'success';
+        this.logVictoryAnimation();
+      }
+
+      return {
+        done: true,
+        state: JSON.parse(JSON.stringify(this.currentState)),
+        highlightedBlockId: this.highlightedBlockId
+      };
+    }
+
+    if (!hasMoreCode) {
+      this.currentState.result = this.notDone() ? 'failure' : 'success';
+      if (this.currentState.result === 'success') this.logVictoryAnimation();
+      this.currentState.isFinished = true;
     }
     
     return {
@@ -159,57 +202,6 @@ step(): StepResult {
       highlightedBlockId: this.highlightedBlockId
     };
   }
-  // KẾT THÚC SỬA ĐỔI
-
-  if (!this.interpreter || this.currentState.isFinished) return null;
-
-  // --- GIAI ĐOẠN THỰC THI ---
-  this.highlightedBlockId = null;
-  this.executedAction = false;
-  let hasMoreCode = true;
-
-  while (hasMoreCode && !this.executedAction) {
-    try {
-      hasMoreCode = this.interpreter.step();
-    } catch (e) {
-      this.currentState.result = 'error';
-      this.currentState.isFinished = true;
-      return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
-    }
-  }
-
-  // SỬA ĐỔI: Thêm một kiểm tra ở đây
-  // Nếu không còn mã để chạy và không có hành động nào được thực hiện (ví dụ: người dùng không đặt khối nào)
-  // thì trả về null để báo hiệu kết thúc.
-  if (!hasMoreCode && !this.executedAction) {
-      this.currentState.isFinished = true;
-      // Kiểm tra điều kiện thắng/thua một lần cuối
-      if (this.notDone()) {
-          this.currentState.result = 'failure';
-      } else {
-          this.currentState.result = 'success';
-          this.logVictoryAnimation();
-      }
-
-      return {
-          done: true,
-          state: JSON.parse(JSON.stringify(this.currentState)),
-          highlightedBlockId: this.highlightedBlockId
-      };
-  }
-
-  if (!hasMoreCode) {
-    this.currentState.result = this.notDone() ? 'failure' : 'success';
-    if (this.currentState.result === 'success') this.logVictoryAnimation();
-    this.currentState.isFinished = true;
-  }
-  
-  return {
-    done: this.currentState.isFinished,
-    state: JSON.parse(JSON.stringify(this.currentState)),
-    highlightedBlockId: this.highlightedBlockId
-  };
-}
 
   checkWinCondition(finalState: GameState, _solutionConfig: SolutionConfig): boolean {
     const state = finalState as MazeGameState;
@@ -246,13 +238,14 @@ step(): StepResult {
     return !this._isSolidAt(x, y, z) && this._isGroundAt(x, y - 1, z);
   }
 
+  // THAY ĐỔI: Cập nhật xPrev và zPrev trước khi di chuyển
   private moveForward(): void {
     const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
     if (this._isSolidAt(nextX, player.y, nextZ)) {
-        player.pose = 'Bump';
-        return;
+      player.pose = 'Bump';
+      return;
     }
 
     let targetY: number | null = null;
@@ -267,23 +260,32 @@ step(): StepResult {
       return;
     }
 
+    // Lưu vị trí cũ trước khi di chuyển
+    player.xPrev = player.x;
+    player.zPrev = player.z;
+
     player.pose = 'Walking';
     player.x = nextX;
     player.y = targetY;
     player.z = nextZ;
   }
 
+  // THAY ĐỔI: Cập nhật xPrev và zPrev trước khi nhảy
   private jump(): void {
     const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
     if (this._isWalkable(nextX, player.y + 1, nextZ)) {
-        player.pose = 'Jumping';
-        player.x = nextX;
-        player.y = player.y + 1;
-        player.z = nextZ;
+      // Lưu vị trí cũ trước khi nhảy
+      player.xPrev = player.x;
+      player.zPrev = player.z;
+
+      player.pose = 'Jumping';
+      player.x = nextX;
+      player.y = player.y + 1;
+      player.z = nextZ;
     } else {
-        player.pose = 'Bump';
+      player.pose = 'Bump';
     }
   }
 
@@ -359,34 +361,46 @@ step(): StepResult {
     return collectedTypes.filter(type => type === itemType).length;
   }
 
+  // SỬA ĐỔI: Chỉ trigger portal nếu nhân vật VỪA MỚI di chuyển vào (vị trí trước khác vị trí hiện tại)
   public triggerInteraction(): boolean {
     const player = this.getActivePlayer();
     const cell = this.currentState.worldGrid[`${player.x},${player.y},${player.z}`];
     
     if (cell && cell.type === 'portal') {
-      player.pose = 'TeleportOut';
-      return true;
+      // Kiểm tra xem nhân vật có VỪA MỚI di chuyển vào portal không
+      const justMoved = (player.xPrev !== player.x) || (player.zPrev !== player.z);
+      
+      if (justMoved) {
+        player.pose = 'TeleportOut';
+        return true;
+      }
     }
     return false;
   }
 
+  // THAY ĐỔI: Sau khi teleport, cập nhật xPrev/Z để không trigger lại
   public completeTeleport(): void {
     const player = this.getActivePlayer();
     const posKey = `${player.x},${player.y},${player.z}`;
     const cell = this.currentState.worldGrid[posKey];
 
     if (cell && cell.type === 'portal' && cell.id) {
-        const sourcePortal = this.initialGameState.interactibles.find(i => i.id === cell.id) as Portal | undefined;
-        if (sourcePortal) {
-            const targetPortal = this.initialGameState.interactibles.find(i => i.id === sourcePortal.targetId) as Portal | undefined;
-            if (targetPortal) {
-                player.x = targetPortal.position.x;
-                player.y = targetPortal.position.y;
-                player.z = targetPortal.position.z;
-                player.direction = targetPortal.exitDirection ?? player.direction;
-                player.pose = 'TeleportIn';
-            }
+      const sourcePortal = this.initialGameState.interactibles.find(i => i.id === cell.id) as Portal | undefined;
+      if (sourcePortal) {
+        const targetPortal = this.initialGameState.interactibles.find(i => i.id === sourcePortal.targetId) as Portal | undefined;
+        if (targetPortal) {
+          player.x = targetPortal.position.x;
+          player.y = targetPortal.position.y;
+          player.z = targetPortal.position.z;
+          player.direction = targetPortal.exitDirection ?? player.direction;
+          
+          // QUAN TRỌNG: Đặt xPrev/Z bằng vị trí hiện tại để portal không trigger lại
+          player.xPrev = player.x;
+          player.zPrev = player.z;
+          
+          player.pose = 'TeleportIn';
         }
+      }
     }
   }
 }

@@ -28,6 +28,10 @@ export type PlayerState = {
   direction: Direction;
   pose?: string; // For special animations like victory dance
   
+  xPrev?: number;
+  yPrev?: number;
+  zPrev?: number;
+
   teleportTarget?: {
     x: number;
     y: number;
