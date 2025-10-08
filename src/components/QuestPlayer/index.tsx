@@ -7,7 +7,7 @@ import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
 import { transform } from '@babel/standalone';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import type { Quest, GameState, ExecutionMode, CameraMode } from '../../types';
+import type { Quest, GameState, ExecutionMode, CameraMode, MazeConfig } from '../../types';
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
@@ -26,6 +26,7 @@ import { useQuestLoader } from './hooks/useQuestLoader';
 import { useEditorManager } from './hooks/useEditorManager';
 import { useGameLoop } from './hooks/useGameLoop';
 import type { PondGameState } from '../../games/pond/types';
+import type { MazeGameState } from '../../games/maze/types';
 import '../../App.css';
 import './QuestPlayer.css';
 
@@ -42,6 +43,13 @@ interface DialogState {
   code?: string;
 }
 
+interface DisplayStats {
+  blockCount?: number;
+  maxBlocks?: number;
+  crystalsCollected?: number;
+  totalCrystals?: number;
+}
+
 export const QuestPlayer: React.FC = () => {
   const { t, i18n } = useTranslation();
   const prefersColorScheme = usePrefersColorScheme();
@@ -54,6 +62,7 @@ export const QuestPlayer: React.FC = () => {
   
   const [blockCount, setBlockCount] = useState(0);
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
+  const [displayStats, setDisplayStats] = useState<DisplayStats>({});
   
   const [renderer, setRenderer] = useState<'geras' | 'zelos'>('zelos');
   const [blocklyThemeName, setBlocklyThemeName] = useState<BlocklyThemeName>('zelos');
@@ -130,7 +139,8 @@ export const QuestPlayer: React.FC = () => {
     pauseGame, 
     resumeGame, 
     stepForward,
-    handleActionComplete 
+    handleActionComplete,
+    handleTeleportComplete
   } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound, setHighlightedBlockId);
 
   useLayoutEffect(() => {
@@ -150,6 +160,29 @@ export const QuestPlayer: React.FC = () => {
   useEffect(() => {
     if (engineRef.current) resetGame();
   }, [engineRef.current, resetGame]);
+
+  useEffect(() => {
+    const newStats: DisplayStats = {};
+
+    if (questData) {
+        if (currentEditor === 'blockly' && questData.blocklyConfig?.maxBlocks) {
+            newStats.blockCount = blockCount;
+            newStats.maxBlocks = questData.blocklyConfig.maxBlocks;
+        }
+
+        if (questData.gameType === 'maze' && currentGameState) {
+            const mazeConfig = questData.gameConfig as MazeConfig;
+            const mazeState = currentGameState as MazeGameState;
+            
+            if (mazeConfig.collectibles && mazeConfig.collectibles.length > 0) {
+                newStats.totalCrystals = mazeConfig.collectibles.length;
+                newStats.crystalsCollected = mazeState.collectedIds.length;
+            }
+        }
+    }
+    setDisplayStats(newStats);
+
+  }, [questData, currentGameState, blockCount, currentEditor]);
 
   useEffect(() => {
     if (questData?.gameType === 'pond' && currentGameState) {
@@ -207,11 +240,6 @@ export const QuestPlayer: React.FC = () => {
     setImportError('');
   };
   
-  const maxBlocks = questData?.blocklyConfig?.maxBlocks;
-  const processedToolbox = questData?.supportedEditors?.includes('blockly') && questData.blocklyConfig 
-    ? processToolbox(questData.blocklyConfig.toolbox, t) 
-    : undefined;
-
   const is3DRenderer = questData?.gameConfig.type === 'maze' && questData.gameConfig.renderer === '3d';
 
   const workspaceConfiguration = useMemo(() => ({
@@ -263,8 +291,8 @@ export const QuestPlayer: React.FC = () => {
                         <>
                             {playerStatus === 'idle' || playerStatus === 'finished' ? (
                                 <>
-                                    <button className="primaryButton" onClick={() => handleRun('run')}>Run Program</button>
-                                    <button className="primaryButton" onClick={() => handleRun('debug')}>Debug Program</button>
+                                    <button className="primaryButton" onClick={() => handleRun('run')}>Run</button>
+                                    <button className="primaryButton" onClick={() => handleRun('debug')}>Debug</button>
                                 </>
                             ) : null}
 
@@ -298,21 +326,33 @@ export const QuestPlayer: React.FC = () => {
                                 </select>
                             </div>
                         )}
-                        {currentEditor === 'blockly' && maxBlocks && isFinite(maxBlocks) && (
-                            <div style={{ fontFamily: 'monospace' }}>Blocks: {blockCount} / {maxBlocks}</div>
-                        )}
                     </div>
                     </div>
                     {questData && GameRenderer ? (
-                    <Visualization
-                        GameRenderer={GameRenderer}
-                        gameState={currentGameState}
-                        gameConfig={questData.gameConfig}
-                        ref={questData.gameType === 'turtle' ? rendererRef : undefined}
-                        solutionCommands={solutionCommands}
-                        cameraMode={cameraMode}
-                        onActionComplete={handleActionComplete}
-                    />
+                        <div className="visualization-wrapper">
+                            <Visualization
+                                GameRenderer={GameRenderer}
+                                gameState={currentGameState}
+                                gameConfig={questData.gameConfig}
+                                ref={questData.gameType === 'turtle' ? rendererRef : undefined}
+                                solutionCommands={solutionCommands}
+                                cameraMode={cameraMode}
+                                onActionComplete={handleActionComplete}
+                                onTeleportComplete={handleTeleportComplete}
+                            />
+                            <div className="stats-overlay">
+                                {displayStats.blockCount != null && displayStats.maxBlocks != null && (
+                                    <div className="stat-item">
+                                        Blocks: {displayStats.blockCount} / {displayStats.maxBlocks}
+                                    </div>
+                                )}
+                                {displayStats.totalCrystals != null && displayStats.totalCrystals > 0 && (
+                                    <div className="stat-item">
+                                        Crystals: {displayStats.crystalsCollected ?? 0} / {displayStats.totalCrystals}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     ) : (
                     <div className="emptyState"><h2>Load quest to play</h2></div>
                     )}
@@ -336,7 +376,7 @@ export const QuestPlayer: React.FC = () => {
                       currentEditor={currentEditor}
                       onEditorChange={handleEditorChange}
                       onHelpClick={() => setIsDocsOpen(true)}
-                      onToggleSettings={() => setIsSettingsOpen(!isSettingsOpen)} // THÊM MỚI
+                      onToggleSettings={() => setIsSettingsOpen(!isSettingsOpen)}
                     />
                 )}
                 {questData && GameRenderer ? (
@@ -347,11 +387,11 @@ export const QuestPlayer: React.FC = () => {
                     />
                     ) : (
                     <>
-                        {processedToolbox && questData?.blocklyConfig && (
+                        {questData?.blocklyConfig && (
                             <BlocklyWorkspace
                               key={`${questData.id}-${renderer}-${blocklyThemeName}-${effectiveColorScheme}-${toolboxMode}`}
                               className="fill-container"
-                              toolboxConfiguration={processedToolbox}
+                              toolboxConfiguration={processToolbox(questData.blocklyConfig.toolbox, t)}
                               initialXml={questData.blocklyConfig.startBlocks}
                               workspaceConfiguration={workspaceConfiguration}
                               onWorkspaceChange={(workspace) => {

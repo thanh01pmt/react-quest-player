@@ -1,7 +1,7 @@
 // src/games/maze/blocks.ts
 
 import * as Blockly from 'blockly/core';
-import { javascriptGenerator } from 'blockly/javascript';
+import { javascriptGenerator, Order } from 'blockly/javascript';
 import i18n from '../../i18n';
 
 export function init() {
@@ -16,10 +16,10 @@ export function init() {
   Blockly.Msg['DELETE_X_BLOCKS'] = i18n.t('DELETE_X_BLOCKS', 'Delete %1 Blocks');
   Blockly.Msg['HELP'] = i18n.t('Games.help', 'Help');
 
-  // SỬA ĐỔI: Sử dụng mã màu HEX
-  const MOVEMENT_COLOUR = '#CF63CF'; // Tương đương HUE 290
-  const LOOPS_COLOUR = '#5BA55B';    // Tương đương HUE 120
-  const LOGIC_COLOUR = '#5B80A5';    // Tương đương HUE 210
+  const MOVEMENT_COLOUR = '#CF63CF';
+  const LOOPS_COLOUR = '#5BA55B';
+  const LOGIC_COLOUR = '#5B80A5';
+  const ACTION_COLOUR = '#A5745B'; // New color for actions like collect/build
 
   const LEFT_TURN = ' ↺';
   const RIGHT_TURN = ' ↻';
@@ -33,6 +33,12 @@ export function init() {
     [i18n.t('Maze.pathAhead'), 'isPathForward'],
     [i18n.t('Maze.pathLeft'), 'isPathLeft'],
     [i18n.t('Maze.pathRight'), 'isPathRight'],
+  ];
+
+  const ITEM_TYPES: [string, string][] = [
+    ['any item', 'any'],
+    ['crystal', 'crystal'],
+    ['key', 'key'],
   ];
 
   Blockly.Extensions.register('maze_turn_arrows', function(this: Blockly.Block) {
@@ -51,12 +57,13 @@ export function init() {
   };
 
   Blockly.defineBlocksWithJsonArray([
+    // --- Existing Blocks ---
     {
       "type": "maze_moveForward",
       "message0": i18n.t('Maze.moveForward'),
       "previousStatement": null,
       "nextStatement": null,
-      "colour": MOVEMENT_COLOUR, // Sử dụng biến màu mới
+      "colour": MOVEMENT_COLOUR,
       "tooltip": i18n.t('Maze.moveForwardTooltip'),
       "helpUrl": helpClickHandler,
     },
@@ -65,7 +72,7 @@ export function init() {
       "message0": "jump",
       "previousStatement": null,
       "nextStatement": null,
-      "colour": MOVEMENT_COLOUR, // Sử dụng biến màu mới
+      "colour": MOVEMENT_COLOUR,
       "tooltip": "Jumps forward and up one block.",
       "helpUrl": helpClickHandler,
     },
@@ -75,7 +82,7 @@ export function init() {
       "args0": [{ "type": "field_dropdown", "name": "DIR", "options": TURN_DIRECTIONS, }],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": MOVEMENT_COLOUR, // Sử dụng biến màu mới
+      "colour": MOVEMENT_COLOUR,
       "tooltip": i18n.t('Maze.turnTooltip'),
       "extensions": ["maze_turn_arrows"],
       "helpUrl": helpClickHandler,
@@ -90,7 +97,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": LOGIC_COLOUR, // Sử dụng biến màu mới
+      "colour": LOGIC_COLOUR,
       "tooltip": i18n.t('Maze.ifTooltip'),
       "helpUrl": helpClickHandler,
     },
@@ -105,7 +112,7 @@ export function init() {
       ],
       "previousStatement": null,
       "nextStatement": null,
-      "colour": LOGIC_COLOUR, // Sử dụng biến màu mới
+      "colour": LOGIC_COLOUR,
       "tooltip": i18n.t('Maze.ifelseTooltip'),
       "helpUrl": helpClickHandler,
     },
@@ -118,12 +125,73 @@ export function init() {
         { "type": "input_statement", "name": "DO" }
       ],
       "previousStatement": null,
-      "colour": LOOPS_COLOUR, // Sử dụng biến màu mới
+      "colour": LOOPS_COLOUR,
       "tooltip": i18n.t('Maze.whileTooltip'),
       "helpUrl": helpClickHandler,
     },
+    // --- New Blocks ---
+    {
+      "type": "maze_collect",
+      "message0": "collect item",
+      "previousStatement": null,
+      "nextStatement": null,
+      "colour": ACTION_COLOUR,
+      "tooltip": "Collects the item at the current location.",
+    },
+    {
+      "type": "maze_if_item",
+      "message0": "if %1 at current location %2 %3",
+      "args0": [
+        { "type": "field_dropdown", "name": "TYPE", "options": ITEM_TYPES },
+        { "type": "input_dummy" },
+        { "type": "input_statement", "name": "DO" }
+      ],
+      "previousStatement": null,
+      "nextStatement": null,
+      "colour": LOGIC_COLOUR,
+      "tooltip": "Executes the blocks inside if an item of the specified type is at the current location.",
+    },
+    {
+      "type": "maze_item_count",
+      "message0": "count of %1",
+      "args0": [
+        { "type": "field_dropdown", "name": "TYPE", "options": ITEM_TYPES }
+      ],
+      "output": "Number",
+      "colour": ACTION_COLOUR,
+      "tooltip": "Returns the number of collected items of the specified type.",
+    },
+    {
+        "type": "maze_place_block",
+        "message0": "place block forward",
+        "previousStatement": null,
+        "nextStatement": null,
+        "colour": ACTION_COLOUR,
+        "tooltip": "Places a new block in front of the player.",
+    },
+    {
+        "type": "maze_remove_block",
+        "message0": "remove block forward",
+        "previousStatement": null,
+        "nextStatement": null,
+        "colour": ACTION_COLOUR,
+        "tooltip": "Removes the block in front of the player.",
+    },
+    {
+        "type": "maze_if_block",
+        "message0": "if block is forward %1 %2",
+        "args0": [
+            { "type": "input_dummy" },
+            { "type": "input_statement", "name": "DO" }
+        ],
+        "previousStatement": null,
+        "nextStatement": null,
+        "colour": LOGIC_COLOUR,
+        "tooltip": "Checks if there is a block directly in front of the player.",
+    }
   ]);
 
+  // --- Existing Generators ---
   javascriptGenerator.forBlock['maze_moveForward'] = function(block: Blockly.Block) {
     return `moveForward('block_id_${block.id}');\n`;
   };
@@ -154,5 +222,37 @@ export function init() {
           `'block_id_${block.id}'`) + branch;
     }
     return `while (notDone('block_id_${block.id}')) {\n${branch}}\n`;
+  };
+  
+  // --- New Generators ---
+  javascriptGenerator.forBlock['maze_collect'] = function(block: Blockly.Block) {
+    return `collectItem('block_id_${block.id}');\n`;
+  };
+
+  javascriptGenerator.forBlock['maze_if_item'] = function(block: Blockly.Block) {
+    const type = block.getFieldValue('TYPE');
+    const argument = `isItemPresent('${type}', 'block_id_${block.id}')`;
+    const branch = javascriptGenerator.statementToCode(block, 'DO');
+    return `if (${argument}) {\n${branch}}\n`;
+  };
+
+  javascriptGenerator.forBlock['maze_item_count'] = function(block: Blockly.Block) {
+    const type = block.getFieldValue('TYPE');
+    const code = `getItemCount('${type}', 'block_id_${block.id}')`;
+    return [code, Order.FUNCTION_CALL];
+  };
+
+  javascriptGenerator.forBlock['maze_place_block'] = function(block: Blockly.Block) {
+    return `placeBlock('block_id_${block.id}');\n`;
+  };
+
+  javascriptGenerator.forBlock['maze_remove_block'] = function(block: Blockly.Block) {
+    return `removeBlock('block_id_${block.id}');\n`;
+  };
+
+  javascriptGenerator.forBlock['maze_if_block'] = function(block: Blockly.Block) {
+    const argument = `isBlockForward('block_id_${block.id}')`; // Assuming this API will exist
+    const branch = javascriptGenerator.statementToCode(block, 'DO');
+    return `if (${argument}) {\n${branch}}\n`;
   };
 }

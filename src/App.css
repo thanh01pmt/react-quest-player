@@ -30,7 +30,6 @@ body {
 
 .appContainer {
   height: 100vh;
-  /* SỬA LỖI: Xóa bỏ 'display: flex' để tránh xung đột với react-resizable-panels */
 }
 
 /* --- Resizable Panel Handle --- */
@@ -52,7 +51,6 @@ body {
   border: 1px solid var(--border-color);
 }
 
-/* New wrapper to group content */
 .main-content-wrapper {
   flex-grow: 1;
   display: flex;
@@ -60,26 +58,20 @@ body {
   min-height: 0;
 }
 
-/* New container for the importer */
 .importer-container {
   padding: 10px;
   border-top: 1px solid var(--border-color);
-  margin-top: auto; /* This pushes it to the bottom */
-  
-  /* ADDED: Use Flexbox for alignment */
+  margin-top: auto;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 15px; /* Add some space between items */
+  gap: 15px;
 }
-
-
 
 .controlsArea {
   padding: 10px;
   border-top: 1px solid var(--border-color);
   background-color: var(--background-color);
-  /* FIXED: Use Flexbox for button alignment */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -133,4 +125,35 @@ body {
   padding: 20px;
   text-align: center;
   color: #888;
+}
+
+/* --- New Styles for Visualization Wrapper and Stats Overlay --- */
+
+.visualization-wrapper {
+  flex-grow: 1;
+  position: relative; /* This is the anchor for the absolute positioned overlay */
+  display: flex; /* Ensure the child (Visualization) fills this wrapper */
+  flex-direction: column;
+}
+
+.stats-overlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-family: monospace;
+  font-size: 14px;
+  pointer-events: none; /* Allows mouse events to pass through to the canvas */
+}
+
+.stat-item {
+  margin-bottom: 4px;
+}
+
+.stat-item:last-child {
+  margin-bottom: 0;
 }

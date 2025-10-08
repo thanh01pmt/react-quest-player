@@ -2,31 +2,70 @@
 
 import { z } from 'zod';
 
-// SỬA ĐỔI: Gỡ bỏ `export` vì chỉ dùng nội bộ
 const toolboxJsonSchema = z.object({
   kind: z.enum(['flyoutToolbox', 'categoryToolbox']),
   contents: z.array(z.any()),
 });
 
-// SỬA ĐỔI: Gỡ bỏ `export`
 const blocklyConfigSchema = z.object({
   toolbox: toolboxJsonSchema,
   maxBlocks: z.number().optional(),
   startBlocks: z.string().optional(),
 });
 
-// SỬA ĐỔI: Gỡ bỏ `export`
 const monacoConfigSchema = z.object({
     initialCode: z.string(),
 });
 
-// --- Game-specific Config Schemas (giữ private) ---
+// --- Schemas for new Maze features ---
 
 const position3DSchema = z.object({
   x: z.number(),
   y: z.number(),
   z: z.number(),
 });
+
+const collectibleSchema = z.object({
+  id: z.string(),
+  type: z.enum(['crystal', 'key']),
+  position: position3DSchema,
+});
+
+// New discriminated union for interactive objects
+const switchSchema = z.object({
+  type: z.literal('switch'),
+  id: z.string(),
+  position: position3DSchema,
+  toggles: z.array(z.string()),
+  initialState: z.enum(['on', 'off']).default('off'),
+});
+
+const portalSchema = z.object({
+  type: z.literal('portal'),
+  id: z.string(),
+  position: position3DSchema,
+  color: z.enum(['blue', 'green', 'orange', 'pink']),
+  targetId: z.string(),
+  exitDirection: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).optional(),
+});
+
+const interactiveSchema = z.discriminatedUnion('type', [
+  switchSchema,
+  portalSchema,
+]);
+
+const playerConfigSchema = z.object({
+  id: z.string(),
+  start: z.object({
+    x: z.number(),
+    y: z.number(),
+    z: z.number().optional(),
+    direction: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
+  }),
+});
+
+
+// --- Game-specific Config Schemas ---
 
 const blockSchema = z.object({
   modelKey: z.string(),
@@ -38,14 +77,13 @@ const mazeConfigSchema = z.object({
   renderer: z.enum(['2d', '3d']).optional(),
   map: z.array(z.array(z.number())).optional(),
   blocks: z.array(blockSchema).optional(),
-  player: z.object({
-    start: z.object({
-      x: z.number(),
-      y: z.number(),
-      z: z.number().optional(),
-      direction: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
-    }),
-  }),
+  
+  player: playerConfigSchema.optional(),
+  players: z.array(playerConfigSchema).optional(),
+  
+  collectibles: z.array(collectibleSchema).optional(),
+  interactibles: z.array(interactiveSchema).optional(),
+
   finish: z.object({
     x: z.number(),
     y: z.number(),
@@ -57,6 +95,12 @@ const mazeConfigSchema = z.object({
   }
   if (data.map && data.blocks) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Maze config cannot have both 'map' and 'blocks'" });
+  }
+  if (!data.player && !data.players) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Maze config must have either 'player' or 'players' defined" });
+  }
+  if (data.player && data.players) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Maze config cannot have both 'player' and 'players' defined" });
   }
 });
 
@@ -96,12 +140,11 @@ const birdConfigSchema = z.object({
   walls: z.array(lineSchema),
 });
 
-
 const gameConfigSchema = z.discriminatedUnion('type', [
   mazeConfigSchema,
   turtleConfigSchema,
   pondConfigSchema,
-  birdConfigSchema, // THÊM MỚI
+  birdConfigSchema,
 ]);
 
 const solutionConfigSchema = z.object({

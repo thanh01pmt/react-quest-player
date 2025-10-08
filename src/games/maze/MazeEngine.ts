@@ -1,80 +1,110 @@
 // src/games/maze/MazeEngine.ts
 
 import Interpreter from 'js-interpreter';
-import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig, Block, StepResult } from '../../types';
-import type { MazeGameState, Direction, PlayerState } from './types';
+import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig, StepResult, PlayerConfig, Block, Portal, Direction } from '../../types';
+import type { MazeGameState, PlayerState, WorldGridCell } from './types';
 
-const SquareType = { WALL: 0, OPEN: 1, START: 2, FINISH: 3 };
+export interface IMazeEngine extends IGameEngine {
+  triggerInteraction(): boolean;
+  completeTeleport(): void;
+}
 
-export class MazeEngine implements IGameEngine {
+export class MazeEngine implements IMazeEngine {
   public readonly gameType = 'maze';
 
-  private readonly blocks: Block[];
-  private readonly blockSet: Set<string>;
-  private readonly start: PlayerState;
+  private readonly initialGameState: MazeGameState;
   private readonly finish: { x: number; y: number; z: number };
-
-  private currentState!: MazeGameState;
   
+  private currentState!: MazeGameState;
   private interpreter: any | null = null;
-  // THAY ĐỔI: Sử dụng thuộc tính class để lưu trữ ID, không dùng callback nữa
   private highlightedBlockId: string | null = null;
   private executedAction: boolean = false;
 
   constructor(gameConfig: GameConfig) {
     const config = gameConfig as MazeConfig;
     
-    if (config.map) {
-      this.blocks = [];
-      for (let y = 0; y < config.map.length; y++) {
-        for (let x = 0; x < config.map[y].length; x++) {
-          const cell = config.map[y][x];
-          if (cell === SquareType.WALL) {
-            this.blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
-          } else if (cell !== 0) {
-            this.blocks.push({ modelKey: 'ground.normal', position: { x, y: 0, z: y } });
-          }
-        }
-      }
-      this.start = {
-        x: config.player.start.x,
-        y: 1,
-        z: config.player.start.y,
-        direction: config.player.start.direction,
+    const players: PlayerConfig[] = config.players || (config.player ? [{ ...config.player, id: 'player1' }] : []);
+    const playerStates: { [id: string]: PlayerState } = {};
+    for (const p of players) {
+      playerStates[p.id] = {
+        id: p.id,
+        x: p.start.x,
+        y: p.start.y ?? 1,
+        z: p.start.z ?? p.start.y,
+        direction: p.start.direction ?? 1, // Default to 1 (East) if not provided
         pose: 'Idle'
       };
-      this.finish = {
-        x: config.finish.x,
-        y: 1,
-        z: config.finish.y,
-      };
-    } else if (config.blocks) {
-      this.blocks = config.blocks;
-      this.start = {
-        x: config.player.start.x,
-        y: config.player.start.y,
-        z: config.player.start.z!,
-        direction: config.player.start.direction,
-        pose: 'Idle'
-      };
-      this.finish = {
-        x: config.finish.x,
-        y: config.finish.y,
-        z: config.finish.z!,
-      };
-    } else {
-      throw new Error("Invalid MazeConfig: must contain 'map' or 'blocks'");
     }
-    
-    this.blockSet = new Set(this.blocks.map(b => `${b.position.x},${b.position.y},${b.position.z}`));
-  }
 
-  getInitialState(): MazeGameState {
-    return {
-      player: { ...this.start },
+    const unbuiltState: Omit<MazeGameState, 'worldGrid'> = {
+      blocks: this.normalizeBlocks(config),
+      collectibles: config.collectibles || [],
+      interactibles: config.interactibles || [],
+      players: playerStates,
+      activePlayerId: players[0]?.id || '',
+      collectedIds: [],
+      interactiveStates: (config.interactibles || []).reduce((acc, item) => {
+        if (item.type === 'switch') acc[item.id] = item.initialState;
+        return acc;
+      }, {} as { [id: string]: string }),
       result: 'unset',
       isFinished: false,
     };
+
+    this.initialGameState = {
+      ...unbuiltState,
+      worldGrid: this._buildWorldGrid(unbuiltState),
+    };
+
+    this.finish = {
+      x: config.finish.x,
+      y: config.finish.y,
+      z: config.finish.z ?? config.finish.y,
+    };
+
+    this.currentState = this.getInitialState();
+  }
+
+  private _buildWorldGrid(state: Omit<MazeGameState, 'worldGrid'>): Record<string, WorldGridCell> {
+    const grid: Record<string, WorldGridCell> = {};
+    
+    for (const block of state.blocks) {
+      const key = `${block.position.x},${block.position.y},${block.position.z}`;
+      grid[key] = { type: 'block', isSolid: true };
+    }
+    for (const item of state.collectibles) {
+      const key = `${item.position.x},${item.position.y},${item.position.z}`;
+      grid[key] = { type: 'collectible', isSolid: false, id: item.id };
+    }
+    for (const item of state.interactibles) {
+      const key = `${item.position.x},${item.position.y},${item.position.z}`;
+      grid[key] = { type: item.type, isSolid: false, id: item.id };
+    }
+    
+    return grid;
+  }
+
+  private normalizeBlocks(config: MazeConfig): Block[] {
+    if (config.blocks) return config.blocks;
+    if (config.map) {
+      const blocks: Block[] = [];
+      for (let y = 0; y < config.map.length; y++) {
+        for (let x = 0; x < config.map[y].length; x++) {
+          const cell = config.map[y][x];
+          if (cell === 0) {
+            blocks.push({ modelKey: 'wall.brick01', position: { x, y: 0, z: y } });
+          } else if (cell !== 0) {
+            blocks.push({ modelKey: 'ground.normal', position: { x, y: 0, z: y } });
+          }
+        }
+      }
+      return blocks;
+    }
+    return [];
+  }
+
+  getInitialState(): MazeGameState {
+    return JSON.parse(JSON.stringify(this.initialGameState));
   }
 
   execute(userCode: string): void {
@@ -84,76 +114,76 @@ export class MazeEngine implements IGameEngine {
     const initApi = (interpreter: any, globalObject: any) => {
       const createWrapper = (func: Function, isAction: boolean) => {
         return interpreter.createNativeFunction((...args: any[]) => {
-          const blockId = args[args.length - 1];
+          const blockId = args.pop();
           this.highlight(blockId);
-          if (isAction) {
-            this.executedAction = true;
-          }
+          if (isAction) this.executedAction = true;
           return func.apply(this, args);
         });
       };
 
-      interpreter.setProperty(globalObject, 'moveForward', createWrapper(this.moveForward, true));
-      interpreter.setProperty(globalObject, 'turnLeft', createWrapper(this.turnLeft, true));
-      interpreter.setProperty(globalObject, 'turnRight', createWrapper(this.turnRight, true));
-      interpreter.setProperty(globalObject, 'jump', createWrapper(this.jump, true));
+      interpreter.setProperty(globalObject, 'moveForward', createWrapper(this.moveForward.bind(this), true));
+      interpreter.setProperty(globalObject, 'turnLeft', createWrapper(this.turnLeft.bind(this), true));
+      interpreter.setProperty(globalObject, 'turnRight', createWrapper(this.turnRight.bind(this), true));
+      interpreter.setProperty(globalObject, 'jump', createWrapper(this.jump.bind(this), true));
       interpreter.setProperty(globalObject, 'isPathForward', createWrapper(this.isPath.bind(this, 0), false));
       interpreter.setProperty(globalObject, 'isPathRight', createWrapper(this.isPath.bind(this, 1), false));
       interpreter.setProperty(globalObject, 'isPathLeft', createWrapper(this.isPath.bind(this, 3), false));
-      interpreter.setProperty(globalObject, 'notDone', createWrapper(this.notDone, false));
+      interpreter.setProperty(globalObject, 'notDone', createWrapper(this.notDone.bind(this), false));
+      interpreter.setProperty(globalObject, 'collectItem', createWrapper(this.collectItem.bind(this), true));
+      interpreter.setProperty(globalObject, 'isItemPresent', createWrapper(this.isItemPresent.bind(this), false));
+      interpreter.setProperty(globalObject, 'getItemCount', createWrapper(this.getItemCount.bind(this), false));
+      interpreter.setProperty(globalObject, 'placeBlock', createWrapper(() => {}, true));
+      interpreter.setProperty(globalObject, 'removeBlock', createWrapper(() => {}, true));
     };
 
     this.interpreter = new Interpreter(userCode, initApi);
   }
   
-  // SỬA LỖI: Sửa lại signature của step() để khớp với IGameEngine
   step(): StepResult {
-    if (!this.interpreter || this.currentState.isFinished) {
-      return null;
-    }
-
+    if (!this.interpreter || this.currentState.isFinished) return null;
+  
+    // --- GIAI ĐOẠN THỰC THI ---
     this.highlightedBlockId = null;
     this.executedAction = false;
     let hasMoreCode = true;
-
+  
     while (hasMoreCode && !this.executedAction) {
-        try {
-            hasMoreCode = this.interpreter.step();
-        } catch (e) {
-            this.currentState.result = 'error';
-            this.currentState.isFinished = true;
-            return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
-        }
-    }
-
-    if (!hasMoreCode) {
-        this.currentState.result = this.notDone() ? 'failure' : 'success';
-        if (this.currentState.result === 'success') {
-            this.logVictoryAnimation();
-        }
+      try {
+        hasMoreCode = this.interpreter.step();
+      } catch (e) {
+        this.currentState.result = 'error';
         this.currentState.isFinished = true;
+        return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
+      }
+    }
+  
+    if (!hasMoreCode) {
+      this.currentState.result = this.notDone() ? 'failure' : 'success';
+      if (this.currentState.result === 'success') this.logVictoryAnimation();
+      this.currentState.isFinished = true;
     }
     
-    // SỬA LỖI: Trả về highlightedBlockId đã được lưu
-    const result = {
-        done: this.currentState.isFinished,
-        state: JSON.parse(JSON.stringify(this.currentState)),
-        highlightedBlockId: this.highlightedBlockId
+    return {
+      done: this.currentState.isFinished,
+      state: JSON.parse(JSON.stringify(this.currentState)),
+      highlightedBlockId: this.highlightedBlockId
     };
-    this.highlightedBlockId = null; // Reset sau khi đã trả về
-    return result;
   }
-
 
   checkWinCondition(finalState: GameState, _solutionConfig: SolutionConfig): boolean {
     const state = finalState as MazeGameState;
-    return state.player.x === this.finish.x && state.player.y === this.finish.y && state.player.z === this.finish.z;
+    const activePlayer = state.players[state.activePlayerId];
+    return activePlayer.x === this.finish.x && activePlayer.y === this.finish.y && activePlayer.z === this.finish.z;
   }
   
-  private highlight(id?: string): void {
+  private highlight(id?: any): void {
     if (typeof id === 'string' && id.startsWith('block_id_')) {
       this.highlightedBlockId = id.replace('block_id_', '');
     }
+  }
+
+  private getActivePlayer(): PlayerState {
+    return this.currentState.players[this.currentState.activePlayerId];
   }
 
   private getNextPosition(x: number, z: number, direction: Direction): { x: number, z: number } {
@@ -161,25 +191,39 @@ export class MazeEngine implements IGameEngine {
     return { x, z };
   }
   
-  private isWalkable(x: number, y: number, z: number): boolean {
-    const posStr = `${x},${y},${z}`;
-    const groundStr = `${x},${y - 1},${z}`;
-    return !this.blockSet.has(posStr) && this.blockSet.has(groundStr);
+  private _isSolidAt(x: number, y: number, z: number): boolean {
+    const cell = this.currentState.worldGrid[`${x},${y},${z}`];
+    return cell ? cell.isSolid : false;
+  }
+
+  private _isGroundAt(x: number, y: number, z: number): boolean {
+    const cell = this.currentState.worldGrid[`${x},${y},${z}`];
+    return !!cell;
+  }
+
+  private _isWalkable(x: number, y: number, z: number): boolean {
+    return !this._isSolidAt(x, y, z) && this._isGroundAt(x, y - 1, z);
   }
 
   private moveForward(): void {
-    const { player } = this.currentState;
+    const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
+    if (this._isSolidAt(nextX, player.y, nextZ)) {
+        player.pose = 'Bump';
+        return;
+    }
+
     let targetY: number | null = null;
-    if (this.isWalkable(nextX, player.y, nextZ)) {
+    if (this._isWalkable(nextX, player.y, nextZ)) {
       targetY = player.y;
-    } else if (this.isWalkable(nextX, player.y - 1, nextZ)) {
+    } else if (this._isWalkable(nextX, player.y - 1, nextZ)) {
       targetY = player.y - 1;
     }
 
     if (targetY === null) {
-      throw new Error('Hit a wall');
+      player.pose = 'Bump';
+      return;
     }
 
     player.pose = 'Walking';
@@ -189,53 +233,119 @@ export class MazeEngine implements IGameEngine {
   }
 
   private jump(): void {
-    const { player } = this.currentState;
+    const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
 
-    if (this.isWalkable(nextX, player.y + 1, nextZ)) {
+    if (this._isWalkable(nextX, player.y + 1, nextZ)) {
         player.pose = 'Jumping';
         player.x = nextX;
         player.y = player.y + 1;
         player.z = nextZ;
     } else {
-        throw new Error('Cannot jump there');
+        player.pose = 'Bump';
     }
   }
 
   private turnLeft(): void {
-    this.currentState.player.direction = this.constrainDirection(this.currentState.player.direction - 1);
-    this.currentState.player.pose = 'Idle';
+    this.getActivePlayer().direction = this.constrainDirection(this.getActivePlayer().direction - 1);
+    this.getActivePlayer().pose = 'Idle';
   }
 
   private turnRight(): void {
-    this.currentState.player.direction = this.constrainDirection(this.currentState.player.direction + 1);
-    this.currentState.player.pose = 'Idle';
+    this.getActivePlayer().direction = this.constrainDirection(this.getActivePlayer().direction + 1);
+    this.getActivePlayer().pose = 'Idle';
   }
 
   private isPath(relativeDirection: 0 | 1 | 3): boolean {
-    const { player } = this.currentState;
+    const player = this.getActivePlayer();
     const effectiveDirection = this.constrainDirection(player.direction + relativeDirection);
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, effectiveDirection);
 
     return (
-      this.isWalkable(nextX, player.y + 1, nextZ) ||
-      this.isWalkable(nextX, player.y, nextZ) ||
-      this.isWalkable(nextX, player.y - 1, nextZ)
+      this._isWalkable(nextX, player.y + 1, nextZ) ||
+      this._isWalkable(nextX, player.y, nextZ) ||
+      this._isWalkable(nextX, player.y - 1, nextZ)
     );
   }
 
   private notDone(): boolean {
-    const { player } = this.currentState;
+    const player = this.getActivePlayer();
     return player.x !== this.finish.x || player.y !== this.finish.y || player.z !== this.finish.z;
   }
   
   private logVictoryAnimation(): void {
-    this.currentState.player.pose = 'Victory';
+    this.getActivePlayer().pose = 'Victory';
   }
 
   private constrainDirection(d: number): Direction {
     d = Math.round(d) % 4;
     if (d < 0) d += 4;
     return d as Direction;
+  }
+
+  private collectItem(): boolean {
+    const player = this.getActivePlayer();
+    const cell = this.currentState.worldGrid[`${player.x},${player.y},${player.z}`];
+
+    if (cell && cell.type === 'collectible' && cell.id && !this.currentState.collectedIds.includes(cell.id)) {
+      this.currentState.collectedIds.push(cell.id);
+      
+      this.currentState.collectibles = this.currentState.collectibles.filter(c => c.id !== cell.id);
+      this.currentState.worldGrid = this._buildWorldGrid(this.currentState);
+      return true;
+    }
+    return false;
+  }
+
+  private isItemPresent(itemType: 'any' | 'crystal' | 'key' = 'any'): boolean {
+    const player = this.getActivePlayer();
+    const cell = this.currentState.worldGrid[`${player.x},${player.y},${player.z}`];
+    
+    if (!cell || cell.type !== 'collectible') return false;
+    if (itemType === 'any') return true;
+
+    const item = this.initialGameState.collectibles.find(c => c.id === cell.id);
+    return item?.type === itemType;
+  }
+
+  private getItemCount(itemType: 'any' | 'crystal' | 'key' = 'any'): number {
+    if (itemType === 'any') return this.currentState.collectedIds.length;
+    
+    const collectedTypes = this.initialGameState.collectibles
+      .filter(c => this.currentState.collectedIds.includes(c.id))
+      .map(c => c.type);
+    
+    return collectedTypes.filter(type => type === itemType).length;
+  }
+
+  public triggerInteraction(): boolean {
+    const player = this.getActivePlayer();
+    const cell = this.currentState.worldGrid[`${player.x},${player.y},${player.z}`];
+    
+    if (cell && cell.type === 'portal') {
+      player.pose = 'TeleportOut';
+      return true;
+    }
+    return false;
+  }
+
+  public completeTeleport(): void {
+    const player = this.getActivePlayer();
+    const posKey = `${player.x},${player.y},${player.z}`;
+    const cell = this.currentState.worldGrid[posKey];
+
+    if (cell && cell.type === 'portal' && cell.id) {
+        const sourcePortal = this.initialGameState.interactibles.find(i => i.id === cell.id) as Portal | undefined;
+        if (sourcePortal) {
+            const targetPortal = this.initialGameState.interactibles.find(i => i.id === sourcePortal.targetId) as Portal | undefined;
+            if (targetPortal) {
+                player.x = targetPortal.position.x;
+                player.y = targetPortal.position.y;
+                player.z = targetPortal.position.z;
+                player.direction = targetPortal.exitDirection ?? player.direction;
+                player.pose = 'TeleportIn';
+            }
+        }
+    }
   }
 }
