@@ -44,6 +44,7 @@ export const GameAssets = {
             crystal: '/assets/maze/models/crystal.glb',
             key: '/assets/maze/models/key.glb',
             portal: '/assets/maze/models/portal.glb',
+            switch: '/assets/maze/models/switch.glb',
         },
     },
 };

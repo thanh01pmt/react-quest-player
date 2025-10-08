@@ -10,6 +10,7 @@ import { CameraRig } from './components/CameraRig';
 import BlockComponent from './components/Block';
 import { Collectible } from './components/Collectible';
 import { Portal } from './components/Portal';
+import { SwitchComponent } from './components/Switch';
 
 interface IGameRenderer extends IGameRendererBase {
   cameraMode?: CameraMode;
@@ -95,6 +96,20 @@ const Scene: React.FC<{
               position={[
                 item.position.x * TILE_SIZE,
                 (item.position.y - 0.54) * TILE_SIZE + 0.1, 
+                item.position.z * TILE_SIZE,
+              ]}
+            />
+          );
+        }
+        if (item.type === 'switch') {
+          const isOn = gameState.interactiveStates[item.id] === 'on';
+          return (
+            <SwitchComponent
+              key={item.id}
+              isOn={isOn}
+              position={[
+                item.position.x * TILE_SIZE,
+                (item.position.y - 1) * TILE_SIZE + TILE_SIZE / 2,
                 item.position.z * TILE_SIZE,
               ]}
             />

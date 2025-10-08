@@ -137,6 +137,7 @@ export class MazeEngine implements IMazeEngine {
       interpreter.setProperty(globalObject, 'getItemCount', createWrapper(this.getItemCount.bind(this), false));
       interpreter.setProperty(globalObject, 'placeBlock', createWrapper(() => {}, true));
       interpreter.setProperty(globalObject, 'removeBlock', createWrapper(() => {}, true));
+      interpreter.setProperty(globalObject, 'toggleSwitch', createWrapper(this.toggleSwitch.bind(this), true));
     };
 
     this.interpreter = new Interpreter(userCode, initApi);
@@ -359,6 +360,18 @@ export class MazeEngine implements IMazeEngine {
       .map(c => c.type);
     
     return collectedTypes.filter(type => type === itemType).length;
+  }
+
+  private toggleSwitch(): boolean {
+    const player = this.getActivePlayer();
+    const cell = this.currentState.worldGrid[`${player.x},${player.y},${player.z}`];
+
+    if (cell && cell.type === 'switch' && cell.id) {
+        const currentState = this.currentState.interactiveStates[cell.id];
+        this.currentState.interactiveStates[cell.id] = currentState === 'on' ? 'off' : 'on';
+        return true;
+    }
+    return false;
   }
 
   // SỬA ĐỔI: Chỉ trigger portal nếu nhân vật VỪA MỚI di chuyển vào (vị trí trước khác vị trí hiện tại)

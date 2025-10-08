@@ -99,7 +99,7 @@ export interface Switch {
   type: 'switch';
   id: string;
   position: Position3D;
-  toggles: string[];
+  toggles?: string[];
   initialState: 'on' | 'off';
 }
 

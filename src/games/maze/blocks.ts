@@ -139,6 +139,14 @@ export function init() {
       "tooltip": "Collects the item at the current location.",
     },
     {
+      "type": "maze_toggle_switch",
+      "message0": "toggle switch",
+      "previousStatement": null,
+      "nextStatement": null,
+      "colour": ACTION_COLOUR,
+      "tooltip": "Toggles the switch at the current location.",
+    },
+    {
       "type": "maze_if_item",
       "message0": "if %1 at current location %2 %3",
       "args0": [
@@ -227,6 +235,10 @@ export function init() {
   // --- New Generators ---
   javascriptGenerator.forBlock['maze_collect'] = function(block: Blockly.Block) {
     return `collectItem('block_id_${block.id}');\n`;
+  };
+
+  javascriptGenerator.forBlock['maze_toggle_switch'] = function(block: Blockly.Block) {
+    return `toggleSwitch('block_id_${block.id}');\n`;
   };
 
   javascriptGenerator.forBlock['maze_if_item'] = function(block: Blockly.Block) {

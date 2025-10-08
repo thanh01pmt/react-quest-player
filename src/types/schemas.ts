@@ -36,7 +36,7 @@ const switchSchema = z.object({
   type: z.literal('switch'),
   id: z.string(),
   position: position3DSchema,
-  toggles: z.array(z.string()),
+  toggles: z.array(z.string()).optional(), // For future use, e.g., toggling doors
   initialState: z.enum(['on', 'off']).default('off'),
 });
 

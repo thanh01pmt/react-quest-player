@@ -7,7 +7,7 @@ import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
 import { transform } from '@babel/standalone';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import type { Quest, GameState, ExecutionMode, CameraMode, MazeConfig } from '../../types';
+import type { Quest, GameState, ExecutionMode, CameraMode, MazeConfig, Interactive } from '../../types';
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
@@ -48,6 +48,8 @@ interface DisplayStats {
   maxBlocks?: number;
   crystalsCollected?: number;
   totalCrystals?: number;
+  switchesToggled?: number;
+  totalSwitches?: number;
 }
 
 export const QuestPlayer: React.FC = () => {
@@ -177,6 +179,12 @@ export const QuestPlayer: React.FC = () => {
             if (mazeConfig.collectibles && mazeConfig.collectibles.length > 0) {
                 newStats.totalCrystals = mazeConfig.collectibles.length;
                 newStats.crystalsCollected = mazeState.collectedIds.length;
+            }
+
+            const switches = mazeConfig.interactibles?.filter((i: Interactive) => i.type === 'switch');
+            if (switches && switches.length > 0) {
+                newStats.totalSwitches = switches.length;
+                newStats.switchesToggled = Object.values(mazeState.interactiveStates).filter(state => state === 'on').length;
             }
         }
     }
@@ -349,6 +357,11 @@ export const QuestPlayer: React.FC = () => {
                                 {displayStats.totalCrystals != null && displayStats.totalCrystals > 0 && (
                                     <div className="stat-item">
                                         Crystals: {displayStats.crystalsCollected ?? 0} / {displayStats.totalCrystals}
+                                    </div>
+                                )}
+                                {displayStats.totalSwitches != null && displayStats.totalSwitches > 0 && (
+                                    <div className="stat-item">
+                                        Switches: {displayStats.switchesToggled ?? 0} / {displayStats.totalSwitches}
                                     </div>
                                 )}
                             </div>
