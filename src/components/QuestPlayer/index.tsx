@@ -139,7 +139,8 @@ export const QuestPlayer: React.FC = () => {
     pauseGame, 
     resumeGame, 
     stepForward,
-    handleActionComplete 
+    handleActionComplete,
+    handleTeleportComplete
   } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound, setHighlightedBlockId);
 
   useLayoutEffect(() => {
@@ -337,7 +338,7 @@ export const QuestPlayer: React.FC = () => {
                                 solutionCommands={solutionCommands}
                                 cameraMode={cameraMode}
                                 onActionComplete={handleActionComplete}
-                                engineRef={engineRef}
+                                onTeleportComplete={handleTeleportComplete}
                             />
                             <div className="stats-overlay">
                                 {displayStats.blockCount != null && displayStats.maxBlocks != null && (

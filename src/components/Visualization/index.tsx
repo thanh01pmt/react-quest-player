@@ -1,44 +1,46 @@
 // src/components/Visualization/index.tsx
 
-import React, { forwardRef } from 'react';
-import type { IGameRenderer, GameState, GameConfig } from '../../types';
+import { forwardRef } from 'react';
+import type { IGameRenderer, GameState, GameConfig, CameraMode } from '../../types';
 
 interface VisualizationProps {
-  GameRenderer: IGameRenderer | null;
+  GameRenderer: IGameRenderer;
   gameState: GameState | null;
-  gameConfig: GameConfig | null;
-  [key: string]: any; // Allow other props
+  gameConfig: GameConfig;
+  solutionCommands?: string[];
+  cameraMode?: CameraMode;
+  onActionComplete: () => void;
+  onTeleportComplete?: () => void;
 }
 
 export const Visualization = forwardRef<any, VisualizationProps>(
-  ({ GameRenderer, gameState, gameConfig, ...rest }, ref) => {
-    const containerStyle: React.CSSProperties = {
-      flexGrow: 1,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'var(--visualization-bg)',
-      position: 'relative',
-      overflow: 'hidden',
-    };
-    
-    if (!GameRenderer || !gameState || !gameConfig) {
-      return (
-        <div style={containerStyle}>
-          <span>Initializing Visualization...</span>
-        </div>
-      );
+  (
+    {
+      GameRenderer,
+      gameState,
+      gameConfig,
+      solutionCommands,
+      cameraMode,
+      onActionComplete,
+      onTeleportComplete, 
+    },
+    ref
+  ) => {
+    if (!gameState) {
+      // Có thể hiển thị một trạng thái loading hoặc fallback ở đây nếu cần
+      return null;
     }
 
     return (
-      <div style={containerStyle}>
-        <GameRenderer 
-          gameState={gameState} 
-          gameConfig={gameConfig} 
-          ref={ref} 
-          {...rest} 
-        />
-      </div>
+      <GameRenderer
+        ref={ref}
+        gameState={gameState}
+        gameConfig={gameConfig}
+        solutionCommands={solutionCommands}
+        cameraMode={cameraMode}
+        onActionComplete={onActionComplete}
+        onTeleportComplete={onTeleportComplete} 
+      />
     );
   }
 );

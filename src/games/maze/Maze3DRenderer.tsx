@@ -3,7 +3,7 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode, IGameEngine } from '../../types';
+import type { IGameRenderer as IGameRendererBase, MazeConfig, CameraMode } from '../../types';
 import type { MazeGameState } from './types';
 import { RobotCharacter } from './components/RobotCharacter';
 import { CameraRig } from './components/CameraRig';
@@ -14,7 +14,7 @@ import { Portal } from './components/Portal';
 interface IGameRenderer extends IGameRendererBase {
   cameraMode?: CameraMode;
   onActionComplete?: () => void;
-  engineRef?: React.RefObject<IGameEngine>; // Add engineRef prop
+  onTeleportComplete?: () => void;
 }
 
 const TILE_SIZE = 2;
@@ -36,9 +36,9 @@ const Scene: React.FC<{
   gameConfig: MazeConfig; 
   gameState: MazeGameState; 
   onActionComplete: () => void;
+  onTeleportComplete: () => void; // Nhận prop mới
   robotRef: React.RefObject<THREE.Group>;
-  engineRef?: React.RefObject<IGameEngine>; // Receive engineRef
-}> = ({ gameConfig, gameState, onActionComplete, robotRef, engineRef }) => {
+}> = ({ gameConfig, gameState, onActionComplete, onTeleportComplete, robotRef }) => {
   const activePlayer = gameState.players[gameState.activePlayerId];
   
   const robotPosition = useMemo(() => {
@@ -57,13 +57,6 @@ const Scene: React.FC<{
         activePlayer.z * TILE_SIZE
     );
   }, [activePlayer]);
-
-  const handleTeleportOutComplete = () => {
-    if (engineRef?.current && 'completeTeleport' in engineRef.current) {
-      (engineRef.current as any).completeTeleport();
-      // This will trigger a re-render with the new state (pose: 'TeleportIn')
-    }
-  };
 
   if (!activePlayer) return null;
 
@@ -124,7 +117,7 @@ const Scene: React.FC<{
         direction={activePlayer.direction}
         animationName={activePlayer.pose || 'Idle'}
         onTweenComplete={onActionComplete}
-        onTeleportOutComplete={handleTeleportOutComplete}
+        onTeleportOutComplete={onTeleportComplete} 
       />
     </group>
   );
@@ -132,7 +125,7 @@ const Scene: React.FC<{
 
 // --- Main Renderer Component ---
 
-export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMode = 'Follow', onActionComplete = () => {}, engineRef }) => {
+export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMode = 'Follow', onActionComplete = () => {}, onTeleportComplete = () => {} }) => {
     const mazeState = gameState as MazeGameState;
     const mazeConfig = gameConfig as MazeConfig;
     const robotRef = useRef<THREE.Group>(null);
@@ -163,7 +156,7 @@ export const Maze3DRenderer: IGameRenderer = ({ gameState, gameConfig, cameraMod
           gameState={mazeState} 
           onActionComplete={onActionComplete} 
           robotRef={robotRef}
-          engineRef={engineRef} // Pass it down to the scene
+          onTeleportComplete={onTeleportComplete}
         />
       </Canvas>
     );

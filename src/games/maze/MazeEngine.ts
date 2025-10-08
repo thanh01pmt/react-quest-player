@@ -141,29 +141,32 @@ export class MazeEngine implements IMazeEngine {
   
   step(): StepResult {
     if (!this.interpreter || this.currentState.isFinished) return null;
-
+  
+    // --- GIAI ĐOẠN THỰC THI ---
     this.highlightedBlockId = null;
     this.executedAction = false;
     let hasMoreCode = true;
-
+  
     while (hasMoreCode && !this.executedAction) {
-        try { hasMoreCode = this.interpreter.step(); } catch (e) {
-            this.currentState.result = 'error';
-            this.currentState.isFinished = true;
-            return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
-        }
-    }
-
-    if (!hasMoreCode) {
-        this.currentState.result = this.notDone() ? 'failure' : 'success';
-        if (this.currentState.result === 'success') this.logVictoryAnimation();
+      try {
+        hasMoreCode = this.interpreter.step();
+      } catch (e) {
+        this.currentState.result = 'error';
         this.currentState.isFinished = true;
+        return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
+      }
+    }
+  
+    if (!hasMoreCode) {
+      this.currentState.result = this.notDone() ? 'failure' : 'success';
+      if (this.currentState.result === 'success') this.logVictoryAnimation();
+      this.currentState.isFinished = true;
     }
     
     return {
-        done: this.currentState.isFinished,
-        state: JSON.parse(JSON.stringify(this.currentState)),
-        highlightedBlockId: this.highlightedBlockId
+      done: this.currentState.isFinished,
+      state: JSON.parse(JSON.stringify(this.currentState)),
+      highlightedBlockId: this.highlightedBlockId
     };
   }
 
