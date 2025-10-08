@@ -7,7 +7,7 @@ interface VisualizationProps {
   GameRenderer: IGameRenderer;
   gameState: GameState | null;
   gameConfig: GameConfig;
-  solutionCommands?: string[];
+  solutionCommands?: any[] | null; 
   cameraMode?: CameraMode;
   onActionComplete: () => void;
   onTeleportComplete?: () => void;
@@ -26,9 +26,22 @@ export const Visualization = forwardRef<any, VisualizationProps>(
     },
     ref
   ) => {
-    if (!gameState) {
-      // Có thể hiển thị một trạng thái loading hoặc fallback ở đây nếu cần
-      return null;
+    const containerStyle: React.CSSProperties = {
+      flexGrow: 1,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'var(--visualization-bg)',
+      position: 'relative',
+      overflow: 'hidden',
+    };
+
+    if (!GameRenderer || !gameState || !gameConfig) {
+      return (
+        <div style={containerStyle}>
+          <span>Initializing Visualization...</span>
+        </div>
+      );
     }
 
     return (
@@ -39,7 +52,7 @@ export const Visualization = forwardRef<any, VisualizationProps>(
         solutionCommands={solutionCommands}
         cameraMode={cameraMode}
         onActionComplete={onActionComplete}
-        onTeleportComplete={onTeleportComplete} 
+        onTeleportComplete={onTeleportComplete}
       />
     );
   }

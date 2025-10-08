@@ -35,25 +35,6 @@ export const useGameLoop = (
   const executionModeRef = useRef<ExecutionMode>('run');
   const isWaitingForAnimation = useRef(false);
 
-  const handleActionComplete = useCallback(() => {
-    console.log(`%c[GameLoop] handleActionComplete() CALLED. Setting isWaitingForAnimation=false`, 'color: #2ecc71; font-weight: bold;');
-    const engine = engineRef.current;
-    if (engine?.gameType === 'maze') {
-      const mazeEngine = engine as IMazeEngine;
-      if (mazeEngine.triggerInteraction()) {
-        // Một tương tác đã được phát hiện.
-        // Thay vì lấy trạng thái ngay lập tức, chúng ta sẽ gọi `engine.step()`
-        // để engine xử lý tương tác này và trả về trạng thái mới (ví dụ: 'TeleportOut').
-        executeSingleStep();
-        return; // Dừng lại ở đây, vì executeSingleStep đã xử lý việc cập nhật trạng thái.
-      }
-    }
-    
-    // If no interaction was triggered, or not a maze game, unlock the loop.
-    isWaitingForAnimation.current = false;
-
-  }, [engineRef]);
-
   const executeSingleStep = useCallback(() => {
     const engine = engineRef.current;
     if (!engine || !questData) return true;
@@ -119,19 +100,27 @@ export const useGameLoop = (
     return true;
   }, [engineRef, questData, executionLog, rendererRef, onGameEnd, playSound, setHighlightedBlockId]);
 
+  const handleActionComplete = useCallback(() => {
+    console.log(`%c[GameLoop] handleActionComplete() CALLED. Setting isWaitingForAnimation=false`, 'color: #2ecc71; font-weight: bold;');
+    const engine = engineRef.current;
+    if (engine?.gameType === 'maze') {
+      const mazeEngine = engine as IMazeEngine;
+      if (mazeEngine.triggerInteraction()) {
+        executeSingleStep();
+        return;
+      }
+    }
+    isWaitingForAnimation.current = false;
+  }, [engineRef, executeSingleStep]);
+
 
   const handleTeleportComplete = useCallback(() => {
     const engine = engineRef.current;
-    // Kiểm tra xem engine có tồn tại và có phương thức completeTeleport hay không
     if (engine && 'completeTeleport' in engine) {
-      // Báo cho engine rằng hoạt ảnh đã xong, engine sẽ cập nhật trạng thái nội bộ của nó
       (engine as any).completeTeleport();
-      
-      // QUAN TRỌNG: Bây giờ, hãy chạy một bước nữa để lấy trạng thái mới ('TeleportIn')
-      // từ engine và cập nhật nó vào trạng thái của React.
-      executeSingleStep();
+      isWaitingForAnimation.current = false;
     }
-  }, [engineRef, executeSingleStep]);
+  }, [engineRef]);
 
   const runGame = useCallback((userCode: string, mode: ExecutionMode) => {
     const engine = engineRef.current;

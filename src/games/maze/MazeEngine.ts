@@ -139,28 +139,18 @@ export class MazeEngine implements IMazeEngine {
     this.interpreter = new Interpreter(userCode, initApi);
   }
   
-  step(): StepResult {
-    if (!this.interpreter || this.currentState.isFinished) return null;
-  
-    // --- GIAI ĐOẠN THỰC THI ---
-    this.highlightedBlockId = null;
-    this.executedAction = false;
-    let hasMoreCode = true;
-  
-    while (hasMoreCode && !this.executedAction) {
-      try {
-        hasMoreCode = this.interpreter.step();
-      } catch (e) {
-        this.currentState.result = 'error';
-        this.currentState.isFinished = true;
-        return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
-      }
-    }
-  
-    if (!hasMoreCode) {
-      this.currentState.result = this.notDone() ? 'failure' : 'success';
-      if (this.currentState.result === 'success') this.logVictoryAnimation();
-      this.currentState.isFinished = true;
+// src/games/maze/MazeEngine.ts
+
+step(): StepResult {
+  // SỬA ĐỔI: Thêm một bước kiểm tra ở đầu
+  // Nếu một pose đặc biệt (không phải Idle/Walking) đã được thiết lập từ trước,
+  // hãy trả về trạng thái đó ngay lập tức và coi đó là một "hành động".
+  const currentPlayerPose = this.getActivePlayer().pose;
+  if (currentPlayerPose && !['Idle', 'Walking'].includes(currentPlayerPose)) {
+    // Đặt lại pose thành Idle để nó không bị lặp lại ở lần step tiếp theo,
+    // trừ khi đó là một hoạt ảnh cần thời gian để hoàn thành.
+    if (currentPlayerPose === 'TeleportIn' || currentPlayerPose === 'Bump' || currentPlayerPose === 'Victory') {
+      this.getActivePlayer().pose = 'Idle';
     }
     
     return {
@@ -169,6 +159,57 @@ export class MazeEngine implements IMazeEngine {
       highlightedBlockId: this.highlightedBlockId
     };
   }
+  // KẾT THÚC SỬA ĐỔI
+
+  if (!this.interpreter || this.currentState.isFinished) return null;
+
+  // --- GIAI ĐOẠN THỰC THI ---
+  this.highlightedBlockId = null;
+  this.executedAction = false;
+  let hasMoreCode = true;
+
+  while (hasMoreCode && !this.executedAction) {
+    try {
+      hasMoreCode = this.interpreter.step();
+    } catch (e) {
+      this.currentState.result = 'error';
+      this.currentState.isFinished = true;
+      return { done: true, state: this.currentState, highlightedBlockId: this.highlightedBlockId };
+    }
+  }
+
+  // SỬA ĐỔI: Thêm một kiểm tra ở đây
+  // Nếu không còn mã để chạy và không có hành động nào được thực hiện (ví dụ: người dùng không đặt khối nào)
+  // thì trả về null để báo hiệu kết thúc.
+  if (!hasMoreCode && !this.executedAction) {
+      this.currentState.isFinished = true;
+      // Kiểm tra điều kiện thắng/thua một lần cuối
+      if (this.notDone()) {
+          this.currentState.result = 'failure';
+      } else {
+          this.currentState.result = 'success';
+          this.logVictoryAnimation();
+      }
+
+      return {
+          done: true,
+          state: JSON.parse(JSON.stringify(this.currentState)),
+          highlightedBlockId: this.highlightedBlockId
+      };
+  }
+
+  if (!hasMoreCode) {
+    this.currentState.result = this.notDone() ? 'failure' : 'success';
+    if (this.currentState.result === 'success') this.logVictoryAnimation();
+    this.currentState.isFinished = true;
+  }
+  
+  return {
+    done: this.currentState.isFinished,
+    state: JSON.parse(JSON.stringify(this.currentState)),
+    highlightedBlockId: this.highlightedBlockId
+  };
+}
 
   checkWinCondition(finalState: GameState, _solutionConfig: SolutionConfig): boolean {
     const state = finalState as MazeGameState;
