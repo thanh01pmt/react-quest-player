@@ -129,6 +129,26 @@ export function init() {
       "tooltip": i18n.t('Maze.whileTooltip'),
       "helpUrl": helpClickHandler,
     },
+    // --- Custom Repeat Block ---
+    {
+      "type": "maze_repeat",
+      "message0": `${i18n.t('Controls.repeatTitle')} %1 ${i18n.t('Controls.repeatInputDo')}`,
+      "args0": [
+        {
+          "type": "input_value",
+          "name": "TIMES",
+          "check": "Number"
+        }
+      ],
+      "message1": "%1",
+      "args1": [
+        { "type": "input_statement", "name": "DO" }
+      ],
+      "previousStatement": null,
+      "nextStatement": null,
+      "colour": LOOPS_COLOUR,
+      "tooltip": "Thực hiện các lệnh bên trong một số lần nhất định."
+    },
     // --- New Blocks ---
     {
       "type": "maze_collect",
@@ -232,6 +252,18 @@ export function init() {
     return `while (notDone('block_id_${block.id}')) {\n${branch}}\n`;
   };
   
+  // --- Custom Repeat Generator ---
+  javascriptGenerator.forBlock['maze_repeat'] = function(block: Blockly.Block) {
+    const repeats = javascriptGenerator.valueToCode(block, 'TIMES', Order.ASSIGNMENT) || '0';
+    let branch = javascriptGenerator.statementToCode(block, 'DO');
+    if ((javascriptGenerator as any).INFINITE_LOOP_TRAP) {
+      branch = (javascriptGenerator as any).INFINITE_LOOP_TRAP.replace(/%1/g, `'block_id_${block.id}'`) + branch;
+    }
+    const loopVar = javascriptGenerator.nameDB_?.getDistinctName('count', 'variable') || 'count';
+    const code = `for (let ${loopVar} = 0; ${loopVar} < ${repeats}; ${loopVar}++) {\n${branch}}\n`;
+    return code;
+  };
+
   // --- New Generators ---
   javascriptGenerator.forBlock['maze_collect'] = function(block: Blockly.Block) {
     return `collectItem('block_id_${block.id}');\n`;
