@@ -185,6 +185,7 @@ export class MazeEngine implements IMazeEngine {
     if (!hasMoreCode && !this.executedAction) {
       this.currentState.isFinished = true;
       if (this.notDone()) {
+        this.getActivePlayer().pose = 'Idle'
         this.currentState.result = 'failure';
       } else {
         this.currentState.result = 'success';
@@ -279,18 +280,24 @@ export class MazeEngine implements IMazeEngine {
   private jump(): void {
     const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
-
-    if (this._isWalkable(nextX, player.y + 1, nextZ)) {
-      player.xPrev = player.x;
-      player.zPrev = player.z;
-
-      player.pose = 'Jumping';
-      player.x = nextX;
-      player.y = player.y + 1;
-      player.z = nextZ;
+  
+    let targetY = player.y;
+    if (this._isWalkable(nextX, player.y, nextZ)) {
+      // Flat jump forward
+    } else if (this._isWalkable(nextX, player.y + 1, nextZ)) {
+      targetY = player.y + 1;
     } else {
       player.pose = 'Bump';
+      return;
     }
+  
+    player.xPrev = player.x;
+    player.zPrev = player.z;
+  
+    player.pose = 'Jumping';
+    player.x = nextX;
+    player.y = targetY;
+    player.z = nextZ;
   }
 
   private turnLeft(): void {

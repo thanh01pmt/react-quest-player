@@ -183,7 +183,9 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
           onUpdate: function() {
             if (animationName === 'Jumping') {
               const progress = this.progress();
-              group.position.y = startY + Math.sin(progress * Math.PI) * (TILE_SIZE / 2);
+              // group.position.y = startY + Math.sin(progress * Math.PI) * (TILE_SIZE / 2);
+              const baseY = startY + progress * (position.y - startY); 
+              group.position.y = baseY + Math.sin(progress * Math.PI) * (TILE_SIZE / 2);
             }
           },
           onComplete: () => {
