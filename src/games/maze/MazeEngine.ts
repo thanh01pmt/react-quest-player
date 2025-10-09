@@ -5,8 +5,9 @@ import type { IGameEngine, GameConfig, GameState, MazeConfig, SolutionConfig, St
 import type { MazeGameState, PlayerState, WorldGridCell } from './types';
 
 export interface IMazeEngine extends IGameEngine {
-  triggerInteraction(): boolean;
+  triggerInteraction(): MazeGameState | null;
   completeTeleport(): void;
+  getCurrentState(): MazeGameState;
 }
 
 export class MazeEngine implements IMazeEngine {
@@ -109,6 +110,10 @@ export class MazeEngine implements IMazeEngine {
     return JSON.parse(JSON.stringify(this.initialGameState));
   }
 
+  getCurrentState(): MazeGameState {
+    return JSON.parse(JSON.stringify(this.currentState));
+  }
+
   execute(userCode: string): void {
     this.currentState = this.getInitialState();
     this.highlightedBlockId = null;
@@ -143,6 +148,29 @@ export class MazeEngine implements IMazeEngine {
   }
   
   step(): StepResult {
+    const currentPlayerPose = this.getActivePlayer().pose;
+    
+    const oneShotPoses = [
+      'TeleportIn',
+      'Bump', 
+      'Victory', 
+      'TurningLeft', 
+      'TurningRight',
+      'Collecting',
+      'Toggling'
+    ];
+
+    if (currentPlayerPose && oneShotPoses.includes(currentPlayerPose)) {
+      this.getActivePlayer().pose = 'Idle';
+      const stateToReturn = JSON.parse(JSON.stringify(this.currentState));
+      
+      return {
+        done: this.currentState.isFinished,
+        state: stateToReturn,
+        highlightedBlockId: this.highlightedBlockId
+      };
+    }
+
     if (!this.interpreter || this.currentState.isFinished) return null;
 
     this.highlightedBlockId = null;
@@ -366,7 +394,7 @@ export class MazeEngine implements IMazeEngine {
     return false;
   }
 
-  public triggerInteraction(): boolean {
+  public triggerInteraction(): MazeGameState | null {
     const player = this.getActivePlayer();
     const cell = this.currentState.worldGrid[`${player.x},${player.y},${player.z}`];
     
@@ -375,10 +403,11 @@ export class MazeEngine implements IMazeEngine {
       
       if (justMoved) {
         player.pose = 'TeleportOut';
-        return true;
+        console.log(`%c[MazeEngine] Triggered TeleportOut at position {x:${player.x}, y:${player.y}, z:${player.z}}`, 'color: #3498db; font-weight: bold;');
+        return this.getCurrentState();
       }
     }
-    return false;
+    return null;
   }
 
   public completeTeleport(): void {
@@ -400,6 +429,7 @@ export class MazeEngine implements IMazeEngine {
           player.zPrev = player.z;
           
           player.pose = 'TeleportIn';
+          console.log(`%c[MazeEngine] Completed Teleport to new position {x:${player.x}, y:${player.y}, z:${player.z}}`, 'color: #3498db; font-weight: bold;');
         }
       }
     }

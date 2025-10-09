@@ -63,23 +63,31 @@ export const useGameLoop = (
     if (engine.step) {
       const result: StepResult = engine.step();
       if (result) {
-        console.log(`%c[GameLoop] Received new state from Engine. Setting isWaitingForAnimation=true`, 'color: #f39c12; font-weight: bold;', { 
-          pose: (result.state as any).players?.player1.pose, 
-          position: (result.state as any).players?.player1 
-        });
+        const newPose = (result.state as any).players?.[(result.state as any).activePlayerId]?.pose;
+
+        const posesThatRequireWaiting = [
+            'Walking', 'Jumping', 'TurningLeft', 'TurningRight', 'Bump',
+            'TeleportOut', 'TeleportIn', 'Collecting', 'Toggling', 'Victory'
+        ];
+
         setCurrentGameState(result.state);
-        isWaitingForAnimation.current = true; 
+
+        if (posesThatRequireWaiting.includes(newPose)) {
+            console.log(`%c[GameLoop] Received ACTIVE state [${newPose}]. Setting isWaitingForAnimation=true`, 'color: #f39c12; font-weight: bold;');
+            isWaitingForAnimation.current = true;
+        } else {
+            console.log(`%c[GameLoop] Received PASSIVE state [${newPose}]. Not waiting.`, 'color: #1abc9c; font-weight: bold;');
+            isWaitingForAnimation.current = false;
+        }
 
         if (executionModeRef.current === 'debug' && result.highlightedBlockId) {
           setHighlightedBlockId(result.highlightedBlockId);
         }
         if (result.done) {
-          // If the program finishes, wait for the final animation before checking game over.
-          // This ensures the character reaches the finish line visually.
           isWaitingForAnimation.current = true;
           setTimeout(() => {
             handleGameOver(result.state);
-          }, 800); // Wait for move animation duration
+          }, 800);
           return false;
         }
       }
@@ -99,17 +107,23 @@ export const useGameLoop = (
   }, [engineRef, questData, executionLog, rendererRef, onGameEnd, playSound, setHighlightedBlockId]);
 
   const handleActionComplete = useCallback(() => {
-    console.log(`%c[GameLoop] handleActionComplete() CALLED. Setting isWaitingForAnimation=false`, 'color: #2ecc71; font-weight: bold;');
+    console.log(`%c[GameLoop] handleActionComplete() CALLED.`, 'color: #2ecc71; font-weight: bold;');
     const engine = engineRef.current;
+
     if (engine?.gameType === 'maze') {
       const mazeEngine = engine as IMazeEngine;
-      if (mazeEngine.triggerInteraction()) {
-        executeSingleStep();
+      const interactionState = mazeEngine.triggerInteraction();
+
+      if (interactionState) {
+        console.log(`%c[GameLoop] Interaction triggered. Updating state to 'TeleportOut' and waiting.`, 'color: #8e44ad; font-weight: bold;');
+        setCurrentGameState(interactionState);
+        isWaitingForAnimation.current = true;
         return;
       }
     }
+    
     isWaitingForAnimation.current = false;
-  }, [engineRef, executeSingleStep]);
+  }, [engineRef]);
 
 
   const handleTeleportComplete = useCallback(() => {
