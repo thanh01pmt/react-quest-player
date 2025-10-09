@@ -143,29 +143,6 @@ export class MazeEngine implements IMazeEngine {
   }
   
   step(): StepResult {
-    const currentPlayerPose = this.getActivePlayer().pose;
-    
-    const oneShotPoses = [
-      'TeleportIn', 
-      'Bump', 
-      'Victory', 
-      'TurningLeft', 
-      'TurningRight',
-      'Collecting',
-      'Toggling'
-    ];
-
-    if (currentPlayerPose && oneShotPoses.includes(currentPlayerPose)) {
-      const stateToReturn = JSON.parse(JSON.stringify(this.currentState));
-      this.getActivePlayer().pose = 'Idle';
-      
-      return {
-        done: this.currentState.isFinished,
-        state: stateToReturn,
-        highlightedBlockId: this.highlightedBlockId
-      };
-    }
-
     if (!this.interpreter || this.currentState.isFinished) return null;
 
     this.highlightedBlockId = null;
@@ -280,7 +257,7 @@ export class MazeEngine implements IMazeEngine {
   private jump(): void {
     const player = this.getActivePlayer();
     const { x: nextX, z: nextZ } = this.getNextPosition(player.x, player.z, player.direction);
-  
+
     let targetY = player.y;
     if (this._isWalkable(nextX, player.y, nextZ)) {
       // Flat jump forward
@@ -290,10 +267,10 @@ export class MazeEngine implements IMazeEngine {
       player.pose = 'Bump';
       return;
     }
-  
+
     player.xPrev = player.x;
     player.zPrev = player.z;
-  
+
     player.pose = 'Jumping';
     player.x = nextX;
     player.y = targetY;

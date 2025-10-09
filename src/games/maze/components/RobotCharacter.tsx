@@ -54,6 +54,9 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
 
     const tweenDuration = 0.8;
 
+    // Flag để tránh double call onTweenComplete
+    const isCompleting = React.useRef(false);
+
     // useEffect để quản lý VIỆC CHƠI hoạt ảnh
     useEffect(() => {
       const targetAnimationName = ANIMATION_MAP[animationName] || ANIMATION_MAP.Idle;
@@ -79,9 +82,12 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
               if (event.action === newAction) {
                   mixer.removeEventListener('finished', onFinished);
                   // Gọi onTweenComplete khi hoạt ảnh một lần kết thúc.
-                  // Điều này đồng bộ hóa engine với thời lượng thực của hoạt ảnh.
-                  console.log(`%c[RobotCharacter] Calling onTweenComplete() from One-Shot Animation '${animationName}' FINISHED.`, 'color: #e74c3c; font-weight: bold;');
-                  onTweenComplete();
+                  // Sử dụng flag để tránh double call
+                  if (!isCompleting.current) {
+                    isCompleting.current = true;
+                    console.log(`%c[RobotCharacter] Calling onTweenComplete() from One-Shot Animation '${animationName}' FINISHED.`, 'color: #e74c3c; font-weight: bold;');
+                    onTweenComplete();
+                  }
               }
           };
           mixer.addEventListener('finished', onFinished);
@@ -102,6 +108,7 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
       gsap.killTweensOf(group.position);
       gsap.killTweensOf(group.scale);
       group.scale.set(1, 1, 1);
+      isCompleting.current = false; // Reset flag mỗi khi useEffect trigger
 
       const isMoveAnimation = ['Walking', 'Jumping'].includes(animationName);
       const isTurnAnimation = ['TurningLeft', 'TurningRight'].includes(animationName);
@@ -177,24 +184,27 @@ export const RobotCharacter = forwardRef<THREE.Group, RobotCharacterProps>(
       if (isMoveAnimation) {
         console.log('-> Executing LOGIC BRANCH: Movement');
         const startY = group.position.y;
+        const targetY = position.y; // Lưu target y từ props
         gsap.to(group.position, {
-          x: position.x, y: position.y, z: position.z,
+          x: position.x, y: targetY, z: position.z,
           duration: tweenDuration, ease: 'linear',
           onUpdate: function() {
+            const progress = this.progress();
+            // Tính baseY linear, rồi cộng arc sin cho jump
+            const baseY = startY + progress * (targetY - startY);
             if (animationName === 'Jumping') {
-              const progress = this.progress();
-              // group.position.y = startY + Math.sin(progress * Math.PI) * (TILE_SIZE / 2);
-              const baseY = startY + progress * (position.y - startY); 
               group.position.y = baseY + Math.sin(progress * Math.PI) * (TILE_SIZE / 2);
+            } else {
+              group.position.y = baseY;
             }
           },
           onComplete: () => {
-            // Lưu ý: Jumping cũng là ONE_SHOT_ANIMATION. `onTweenComplete` sẽ được gọi 2 lần.
-            // Điều này thường không gây hại nhưng không lý tưởng.
-            // Tuy nhiên, việc đồng bộ chuyển động và hoạt ảnh phức tạp hơn,
-            // nên tạm thời chấp nhận để đảm bảo chuyển động mượt mà.
-            console.log('%c[RobotCharacter] Calling onTweenComplete() from Movement.', 'color: #e74c3c; font-weight: bold;');
-            onTweenComplete();
+            // Chỉ gọi nếu chưa completing từ mixer
+            if (!isCompleting.current) {
+              isCompleting.current = true;
+              console.log('%c[RobotCharacter] Calling onTweenComplete() from Movement.', 'color: #e74c3c; font-weight: bold;');
+              onTweenComplete();
+            }
           }
         });
         console.groupEnd();
