@@ -40,6 +40,18 @@
         },
         {
           "kind": "block",
+          "type": "maze_forever"
+        },
+        {
+          "kind": "block",
+          "type": "maze_if"
+        },
+        {
+          "kind": "block",
+          "type": "maze_ifElse"
+        },
+        {
+          "kind": "block",
           "type": "maze_collect"
         },
         {

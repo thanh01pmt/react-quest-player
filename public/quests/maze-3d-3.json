@@ -1,0 +1,108 @@
+{
+    "id": "maze-3d-3",
+    "gameType": "maze",
+    "level": 3,
+    "titleKey": "Games.maze",
+    "descriptionKey": "Quest.maze3d3.description",
+    "translations": {
+      "en": {
+        "Quest.maze3d3.description": "Collect the crystal, use the portal to travel to the next island, step on the switch, and then reach the goal."
+      },
+      "vi": {
+        "Quest.maze3d3.description": "Thu thập viên pha lê, sử dụng cổng không gian để đến hòn đảo tiếp theo, dẫm lên công tắc, và sau đó đi tới đích."
+      }
+    },
+    "blocklyConfig": {
+      "toolbox": {
+        "kind": "categoryToolbox",
+        "contents": [
+            { "kind": "category", "name": "Movement", "categorystyle": "turtle_category", "contents": [
+                { "kind": "block", "type": "maze_moveForward" },
+                { "kind": "block", "type": "maze_jump" },
+                { "kind": "block", "type": "maze_turn" }
+            ]},
+            { "kind": "category", "name": "Loops", "categorystyle": "loops_category", "contents": [
+                { "kind": "block", "type": "maze_forever" },
+                { "kind": "block", "type": "controls_repeat_ext", "inputs": { "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 5 }}}}}
+            ]},
+            { "kind": "category", "name": "Logic", "categorystyle": "logic_category", "contents": [
+                { "kind": "block", "type": "maze_if" },
+                { "kind": "block", "type": "maze_ifElse" },
+                { "kind": "block", "type": "maze_if_item" },
+                { "kind": "block", "type": "logic_compare" },
+                { "kind": "block", "type": "logic_operation" },
+                { "kind": "block", "type": "logic_boolean" }
+            ]},
+            { "kind": "category", "name": "Actions", "categorystyle": "pond_category", "contents": [
+                { "kind": "block", "type": "maze_collect" },
+                { "kind": "block", "type": "maze_toggle_switch" }
+            ]},
+            { "kind": "category", "name": "Math", "categorystyle": "math_category", "contents": [
+                { "kind": "block", "type": "maze_item_count" },
+                { "kind": "block", "type": "math_number" },
+                { "kind": "block", "type": "math_arithmetic", "inputs": { "A": { "shadow": { "type": "math_number", "fields": { "NUM": 1 }}}, "B": { "shadow": { "type": "math_number", "fields": { "NUM": 1 }}} }}
+            ]},
+            { "kind": "sep" },
+            { "kind": "category", "name": "%{BKY_GAMES_CATVARIABLES}", "custom": "VARIABLE", "categorystyle": "variable_category" },
+            { "kind": "category", "name": "%{BKY_GAMES_CATPROCEDURES}", "custom": "PROCEDURE", "categorystyle": "procedure_category" }
+        ]
+      },
+      "maxBlocks": 50
+    },
+    "gameConfig": {
+      "type": "maze",
+      "renderer": "3d",
+      "blocks": [
+        { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 1 } },
+        { "modelKey": "ground.normal", "position": { "x": 2, "y": 0, "z": 1 } },
+        { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 1 } },
+        { "modelKey": "ground.normal", "position": { "x": 4, "y": 0, "z": 1 } },
+        { "modelKey": "ground.normal", "position": { "x": 5, "y": 0, "z": 1 } },
+        { "modelKey": "ground.normal", "position": { "x": 5, "y": 0, "z": 8 } },
+        { "modelKey": "ground.normal", "position": { "x": 6, "y": 0, "z": 8 } },
+        { "modelKey": "ground.normal", "position": { "x": 7, "y": 0, "z": 8 } },
+        { "modelKey": "ground.normal", "position": { "x": 8, "y": 0, "z": 8 } },
+        { "modelKey": "ground.normal", "position": { "x": 9, "y": 0, "z": 8 } }
+      ],
+      "players": [
+        {
+          "id": "player1",
+          "start": { "x": 1, "y": 1, "z": 1, "direction": 1 }
+        }
+      ],
+      "collectibles": [
+        { "id": "c1", "type": "crystal", "position": { "x": 3, "y": 1, "z": 1 } }
+      ],
+      "interactibles": [
+        {
+            "id": "portal_A",
+            "type": "portal",
+            "color": "blue",
+            "position": { "x": 5, "y": 1, "z": 1 },
+            "targetId": "portal_B"
+        },
+        {
+            "id": "portal_B",
+            "type": "portal",
+            "color": "blue",
+            "position": { "x": 5, "y": 1, "z": 8 },
+            "targetId": "portal_A"
+        },
+        {
+            "id": "switch_1",
+            "type": "switch",
+            "position": { "x": 7, "y": 1, "z": 8 },
+            "initialState": "off"
+        }
+      ],
+      "finish": { "x": 9, "y": 1, "z": 8 }
+    },
+    "solution": {
+      "type": "reach_target",
+      "optimalBlocks": 12
+    },
+    "sounds": {
+      "win": "/assets/maze/win.mp3",
+      "fail": "/assets/maze/fail_pegman.mp3"
+    }
+}
