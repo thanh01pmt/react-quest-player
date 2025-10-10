@@ -9,12 +9,12 @@ Position = Dict[str, int]
 PlayerStart = Dict[str, int]
 
 # --- SECTION 2: GAME WORLD MODEL (Mô hình hóa thế giới game) ---
-# --- SECTION 2: GAME WORLD MODEL (Mô hình hóa thế giới game) ---
+
 class GameWorld:
     """Đọc và hiểu file JSON, xây dựng một bản đồ thế giới chi tiết với các thuộc tính model."""
     
     # --- Định nghĩa "Luật Chơi" cho các model ---
-    # SỬA LỖI: Thụt đầu dòng cho các biến của class
+    
     WALKABLE_GROUNDS: Set[str] = {
         'ground.checker', 'ground.earth', 'ground.earthChecker', 'ground.normal', 
         'ground.snow', 'ground.mud', 'water', 'ice'
@@ -25,7 +25,7 @@ class GameWorld:
     }
     DEADLY_OBSTACLES: Set[str] = {'lava'}
     
-    # SỬA LỖI: Thụt đầu dòng cho phương thức __init__
+    
     def __init__(self, json_data: Dict[str, Any]):
         config = json_data['gameConfig']
         self.start_info: PlayerStart = config['players'][0]['start']
