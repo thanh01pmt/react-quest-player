@@ -9,14 +9,33 @@ Position = Dict[str, int]
 PlayerStart = Dict[str, int]
 
 # --- SECTION 2: GAME WORLD MODEL (Mô hình hóa thế giới game) ---
+# --- SECTION 2: GAME WORLD MODEL (Mô hình hóa thế giới game) ---
 class GameWorld:
-    """Đọc và hiểu file JSON, chuyển nó thành các cấu trúc dữ liệu dễ truy vấn."""
+    """Đọc và hiểu file JSON, xây dựng một bản đồ thế giới chi tiết với các thuộc tính model."""
+    
+    # --- Định nghĩa "Luật Chơi" cho các model ---
+    # SỬA LỖI: Thụt đầu dòng cho các biến của class
+    WALKABLE_GROUNDS: Set[str] = {
+        'ground.checker', 'ground.earth', 'ground.earthChecker', 'ground.normal', 
+        'ground.snow', 'ground.mud', 'water', 'ice'
+    }
+    SOLID_WALLS: Set[str] = {
+        'stone01', 'stone02', 'stone03', 'stone04', 'stone05', 'stone06', 'stone07',
+        'wall.brick01', 'wall.brick02', 'wall.brick03', 'wall.brick04', 'wall.brick05', 'wall.brick06', 'wall.stone'
+    }
+    DEADLY_OBSTACLES: Set[str] = {'lava'}
+    
+    # SỬA LỖI: Thụt đầu dòng cho phương thức __init__
     def __init__(self, json_data: Dict[str, Any]):
         config = json_data['gameConfig']
         self.start_info: PlayerStart = config['players'][0]['start']
         self.finish_pos: Position = config['finish']
 
-        self.ground: Set[str] = {f"{b['position']['x']}-{b['position']['y']}-{b['position']['z']}" for b in config['blocks']}
+        # --- Xây dựng world_map chi tiết ---
+        self.world_map: Dict[str, str] = {} # Key: 'x-y-z', Value: 'modelKey'
+        for block in config.get('blocks', []):
+            pos_key = f"{block['position']['x']}-{block['position']['y']}-{block['position']['z']}"
+            self.world_map[pos_key] = block['modelKey']
         
         self.collectibles: Dict[str, Dict] = {
             f"{c['position']['x']}-{c['position']['y']}-{c['position']['z']}": c
@@ -128,23 +147,38 @@ def solve_level(world: GameWorld) -> Optional[List[Action]]:
         # 2. Lấy các hành động và trạng thái tiếp theo
         # Hướng: 0:Bắc(-z), 1:Đông(+x), 2:Nam(+z), 3:Tây(-x)
         DIRECTIONS = [(0, 0, -1), (1, 0, 0), (0, 0, 1), (-1, 0, 0)]
-        for action in ['moveForward', 'turnLeft', 'turnRight', 'collect', 'toggleSwitch']:
+        for action in ['moveForward', 'jump', 'turnLeft', 'turnRight', 'collect', 'toggleSwitch']:
             next_state = state.clone()
             is_valid_move = False
             current_pos_key = f"{state.x}-{state.y}-{state.z}"
 
-            if action == 'moveForward':
-                dx, dy, dz = DIRECTIONS[state.direction]
-                next_x, next_y, next_z = state.x + dx, state.y + dy, state.z + dz
+            if action in ['moveForward', 'jump']:
+                dx, _, dz = DIRECTIONS[state.direction]
+                dy = 1 if action == 'jump' else 0 # jump tăng y lên 1
                 
-                # Xử lý Portal
+                next_x, next_y, next_z = state.x + dx, state.y + dy, state.z + dz
+            
                 portal_key = f"{next_x}-{next_y}-{next_z}"
                 if portal_key in world.portals:
                     target_pos = world.portals[portal_key]['targetPosition']
                     next_x, next_y, next_z = target_pos['x'], target_pos['y'], target_pos['z']
 
-                # Nhân vật ở y, đất ở y-1
-                if f"{next_x}-{next_y - 1}-{next_z}" in world.ground:
+                # --- LOGIC KIỂM TRA VA CHẠM VÀ ĐỊA HÌNH NÂNG CAO ---
+                dest_key = f"{next_x}-{next_y}-{next_z}"
+                ground_key = f"{next_x}-{next_y - 1}-{next_z}"
+
+                model_at_dest = world.world_map.get(dest_key)
+                model_at_ground = world.world_map.get(ground_key)
+
+                # Điều kiện 1: Điểm đến không phải là tường
+                is_dest_clear = model_at_dest is None or model_at_dest not in GameWorld.SOLID_WALLS
+                
+                # Điều kiện 2: Nền đất ở dưới phải an toàn để đứng
+                is_ground_safe = model_at_ground is not None and \
+                                 model_at_ground in GameWorld.WALKABLE_GROUNDS and \
+                                 model_at_ground not in GameWorld.DEADLY_OBSTACLES
+
+                if is_dest_clear and is_ground_safe:
                     next_state.x, next_state.y, next_state.z = next_x, next_y, next_z
                     is_valid_move = True
             elif action == 'turnLeft':
@@ -292,27 +326,34 @@ def synthesize_program(actions: List[Action]) -> Dict:
 
 
 def format_program(program: Dict, indent=0) -> str:
-    """Hàm helper để in chương trình ra màn hình."""
+    """Hàm helper để in chương trình ra màn hình THEO ĐÚNG CẤU TRÚC BLOCKLY."""
     output = ""
     prefix = "  " * indent
     
-    # In các hàm đã định nghĩa
+    # In các hàm đã định nghĩa (nếu có)
     if indent == 0 and program["procedures"]:
         for name, body in program["procedures"].items():
             output += f"{prefix}DEFINE {name}:\n"
             output += format_program({"main": body}, indent + 1)
         output += "\n"
 
-    # In chương trình chính
+    # In chương trình chính, bao bọc bởi khối maze_start
     if indent == 0:
         output += f"{prefix}MAIN PROGRAM:\n"
-    
+        # Thêm khối maze_start một cách rõ ràng
+        output += f"{prefix}  On start:\n"
+        # Tăng indent cho các khối bên trong maze_start
+        indent += 2 
+        prefix = "  " * indent
+
+    # Lấy phần thân để in (có thể là main hoặc body của repeat/procedure)
     body_to_print = program.get("main", program.get("body", []))
 
     for block in body_to_print:
         block_type = block.get("type")
         if block_type == 'maze_repeat':
             output += f"{prefix}repeat {block['times']} times:\n"
+            # Gọi đệ quy cho phần thân của vòng lặp
             output += format_program(block, indent + 1)
         elif block_type == 'CALL':
             output += f"{prefix}CALL {block['name']}\n"

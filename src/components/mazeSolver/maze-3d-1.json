@@ -1,15 +1,15 @@
 {
-  "id": "maze-1-1-sequential-upgraded",
+  "id": "maze-1-1-sequential",
   "gameType": "maze",
   "level": 1,
   "titleKey": "Games.maze",
-  "descriptionKey": "Quest.maze1d1upgraded.sandbox.description",
+  "descriptionKey": "Quest.maze1d1.sandbox.description",
   "translations": {
     "en": {
-      "Quest.maze1d1upgraded.sandbox.description": "Follow the brick corridor to the goal. Collect the crystal along the way."
+      "Quest.maze1d1.sandbox.description": "Guide the character to the goal. Use move and turn blocks to follow the path and collect the crystal."
     },
     "vi": {
-      "Quest.maze1d1upgraded.sandbox.description": "Hãy đi theo hành lang gạch để tới đích. Nhớ thu thập viên pha lê trên đường đi nhé."
+      "Quest.maze1d1.sandbox.description": "Hãy dẫn nhân vật tới đích. Sử dụng các khối lệnh di chuyển và rẽ để đi theo con đường và thu thập pha lê."
     }
   },
   "supportedEditors": ["blockly", "monaco"],
@@ -60,20 +60,11 @@
       "type": "maze",
       "renderer": "3d",
       "blocks": [
-        { "modelKey": "ground.earth", "position": { "x": 1, "y": 0, "z": 1 } },
-        { "modelKey": "ground.earth", "position": { "x": 2, "y": 0, "z": 1 } },
-        { "modelKey": "ground.earth", "position": { "x": 3, "y": 0, "z": 1 } },
-        { "modelKey": "ground.earth", "position": { "x": 3, "y": 0, "z": 2 } },
-        { "modelKey": "ground.earth", "position": { "x": 3, "y": 0, "z": 3 } },
-        { "modelKey": "wall.brick01", "position": { "x": 0, "y": 0, "z": 1 } },
-        { "modelKey": "wall.brick01", "position": { "x": 1, "y": 0, "z": 0 } },
-        { "modelKey": "wall.brick01", "position": { "x": 2, "y": 0, "z": 0 } },
-        { "modelKey": "wall.brick01", "position": { "x": 3, "y": 0, "z": 0 } },
-        { "modelKey": "wall.brick01", "position": { "x": 4, "y": 0, "z": 1 } },
-        { "modelKey": "wall.brick01", "position": { "x": 4, "y": 0, "z": 2 } },
-        { "modelKey": "wall.brick01", "position": { "x": 4, "y": 0, "z": 3 } },
-        { "modelKey": "wall.brick01", "position": { "x": 2, "y": 0, "z": 2 } },
-        { "modelKey": "wall.brick01", "position": { "x": 2, "y": 0, "z": 3 } }
+        { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 1 } },
+        { "modelKey": "ground.normal", "position": { "x": 2, "y": 0, "z": 1 } },
+        { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 1 } },
+        { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 2 } },
+        { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 3 } }
       ],
       "players": [
         {
