@@ -7,7 +7,7 @@ import { javascriptGenerator } from 'blockly/javascript';
 import { BlocklyWorkspace } from 'react-blockly';
 import { transform } from '@babel/standalone';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import type { Quest, GameState, ExecutionMode, CameraMode, MazeConfig, Interactive } from '../../types';
+import type { Quest, GameState, ExecutionMode, CameraMode, MazeConfig, Interactive, ToolboxJSON, ToolboxItem } from '../../types';
 import { Visualization } from '../Visualization';
 import { QuestImporter } from '../QuestImporter';
 import { Dialog } from '../Dialog';
@@ -52,6 +52,8 @@ interface DisplayStats {
   totalSwitches?: number;
 }
 
+const START_BLOCK_TYPE = 'maze_start';
+
 export const QuestPlayer: React.FC = () => {
   const { t, i18n } = useTranslation();
   const prefersColorScheme = usePrefersColorScheme();
@@ -65,6 +67,8 @@ export const QuestPlayer: React.FC = () => {
   const [blockCount, setBlockCount] = useState(0);
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
   const [displayStats, setDisplayStats] = useState<DisplayStats>({});
+
+  const [dynamicToolboxConfig, setDynamicToolboxConfig] = useState<ToolboxJSON | null>(null);
   
   const [renderer, setRenderer] = useState<'geras' | 'zelos'>('zelos');
   const [blocklyThemeName, setBlocklyThemeName] = useState<BlocklyThemeName>('zelos');
@@ -78,6 +82,8 @@ export const QuestPlayer: React.FC = () => {
 
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const rendererRef = useRef<TurtleRendererHandle>(null);
+  const initialToolboxConfigRef = useRef<ToolboxJSON | null>(null);
+
 
   const effectiveColorScheme = useMemo(() => {
     if (colorSchemeMode === 'auto') return prefersColorScheme;
@@ -144,6 +150,14 @@ export const QuestPlayer: React.FC = () => {
     handleActionComplete,
     handleTeleportComplete
   } = useGameLoop(engineRef, questData, rendererRef, handleGameEnd, playSound, setHighlightedBlockId);
+
+  useEffect(() => {
+    if (questData?.blocklyConfig) {
+      const processedToolbox = processToolbox(questData.blocklyConfig.toolbox, t);
+      initialToolboxConfigRef.current = processedToolbox;
+      setDynamicToolboxConfig(processedToolbox);
+    }
+  }, [questData, t]);
 
   useLayoutEffect(() => {
     if (questData?.translations) {
@@ -238,7 +252,11 @@ export const QuestPlayer: React.FC = () => {
         return;
       }
     } else if (workspaceRef.current) {
-      userCode = javascriptGenerator.workspaceToCode(workspaceRef.current);
+        const startBlock = workspaceRef.current.getTopBlocks(true).find(b => b.type === START_BLOCK_TYPE);
+        if (startBlock) {
+            const code = javascriptGenerator.blockToCode(startBlock);
+            userCode = Array.isArray(code) ? code[0] : code;
+        }
     }
     runGame(userCode, mode);
   };
@@ -247,6 +265,28 @@ export const QuestPlayer: React.FC = () => {
     setQuestData(loadedQuest);
     setImportError('');
   };
+
+  const onWorkspaceChange = useCallback((workspace: Blockly.WorkspaceSvg) => {
+    workspaceRef.current = workspace;
+    setBlockCount(workspace.getAllBlocks(false).length);
+
+    if (!initialToolboxConfigRef.current) return;
+
+    const startBlockExists = workspace.getTopBlocks(true).some(b => b.type === START_BLOCK_TYPE);
+    const isStartBlockInToolbox = JSON.stringify(dynamicToolboxConfig).includes(START_BLOCK_TYPE);
+
+    if (startBlockExists && isStartBlockInToolbox) {
+      const newToolbox = JSON.parse(JSON.stringify(initialToolboxConfigRef.current));
+      newToolbox.contents.forEach((category: ToolboxItem) => {
+        if (category.kind === 'category' && Array.isArray(category.contents)) {
+          category.contents = category.contents.filter(block => (block as any).type !== START_BLOCK_TYPE);
+        }
+      });
+      setDynamicToolboxConfig(newToolbox);
+    } else if (!startBlockExists && !isStartBlockInToolbox) {
+      setDynamicToolboxConfig(initialToolboxConfigRef.current);
+    }
+  }, [dynamicToolboxConfig]);
   
   const is3DRenderer = questData?.gameConfig.type === 'maze' && questData.gameConfig.renderer === '3d';
 
@@ -392,7 +432,7 @@ export const QuestPlayer: React.FC = () => {
                       onToggleSettings={() => setIsSettingsOpen(!isSettingsOpen)}
                     />
                 )}
-                {questData && GameRenderer ? (
+                {questData && GameRenderer && dynamicToolboxConfig ? (
                     currentEditor === 'monaco' ? (
                     <MonacoEditor
                         initialCode={aceCode}
@@ -404,13 +444,10 @@ export const QuestPlayer: React.FC = () => {
                             <BlocklyWorkspace
                               key={`${questData.id}-${renderer}-${blocklyThemeName}-${effectiveColorScheme}-${toolboxMode}`}
                               className="fill-container"
-                              toolboxConfiguration={processToolbox(questData.blocklyConfig.toolbox, t)}
+                              toolboxConfiguration={dynamicToolboxConfig}
                               initialXml={questData.blocklyConfig.startBlocks}
                               workspaceConfiguration={workspaceConfiguration}
-                              onWorkspaceChange={(workspace) => {
-                                workspaceRef.current = workspace;
-                                setBlockCount(workspace.getAllBlocks(false).length);
-                              }}
+                              onWorkspaceChange={onWorkspaceChange}
                             />
                         )}
                         <SettingsPanel 

@@ -20,6 +20,7 @@ export function init() {
   const LOOPS_COLOUR = '#5BA55B';
   const LOGIC_COLOUR = '#5B80A5';
   const ACTION_COLOUR = '#A5745B';
+  const EVENTS_COLOUR = '#FFBF00'; // Màu mới cho các khối sự kiện
 
   const LEFT_TURN = ' ↺';
   const RIGHT_TURN = ' ↻';
@@ -57,6 +58,19 @@ export function init() {
   };
 
   Blockly.defineBlocksWithJsonArray([
+    // --- NEW EVENT BLOCK ---
+    {
+      "type": "maze_start",
+      "message0": "when Run clicked %1 %2",
+      "args0": [
+        { "type": "input_dummy" },
+        { "type": "input_statement", "name": "DO" }
+      ],
+      "colour": EVENTS_COLOUR,
+      "tooltip": "This block is the starting point for your program.",
+      "helpUrl": helpClickHandler,
+
+    },
     // --- Movement & Action Blocks (Unchanged) ---
     {
       "type": "maze_moveForward",
@@ -171,6 +185,7 @@ export function init() {
       "output": "Boolean",
       "colour": LOGIC_COLOUR,
       "tooltip": "Returns true if the player is at the finish location.",
+      "helpUrl": helpClickHandler,
     },
     // --- Value Blocks (Unchanged) ---
     {
@@ -185,6 +200,11 @@ export function init() {
       "helpUrl": helpClickHandler,
     },
   ]);
+
+  // --- NEW JAVASCRIPT GENERATOR FOR START BLOCK ---
+  javascriptGenerator.forBlock['maze_start'] = function(block: Blockly.Block) {
+    return javascriptGenerator.statementToCode(block, 'DO');
+  };
 
   // --- Unchanged Generators ---
   javascriptGenerator.forBlock['maze_moveForward'] = function(block: Blockly.Block) {
