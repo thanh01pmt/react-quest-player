@@ -89,7 +89,7 @@ export function init() {
     },
     {
       "type": "maze_if",
-      "message0": `${i18n.t('CONTROLS_IF_MSG_IF')} %1 %2 ${i18n.t('Maze.doCode')} %3`,
+      "message0": "%{BKY_CONTROLS_IF_MSG_IF} %1 %2 %{BKY_CONTROLS_IF_MSG_THEN} %3",
       "args0": [
         { "type": "field_dropdown", "name": "DIR", "options": PATH_DIRECTIONS },
         { "type": "input_dummy" },
@@ -103,7 +103,7 @@ export function init() {
     },
     {
       "type": "maze_ifElse",
-      "message0": `${i18n.t('CONTROLS_IF_MSG_IF')} %1 %2 ${i18n.t('Maze.doCode')} %3 ${i18n.t('CONTROLS_IF_MSG_ELSE')} %4`,
+      "message0": "%{BKY_CONTROLS_IF_MSG_IF} %1 %2 %{BKY_CONTROLS_IF_MSG_THEN} %3 %{BKY_CONTROLS_IF_MSG_ELSE} %4",
       "args0": [
         { "type": "field_dropdown", "name": "DIR", "options": PATH_DIRECTIONS },
         { "type": "input_dummy" },
@@ -178,6 +178,26 @@ export function init() {
       "nextStatement": null,
       "colour": LOGIC_COLOUR,
       "tooltip": "Executes the blocks inside if an item of the specified type is at the current location.",
+    },
+    {
+      "type": "maze_if_switch",
+      "message0": "if switch at current location is %1 %2 %3",
+      "args0": [
+        {
+          "type": "field_dropdown",
+          "name": "STATE",
+          "options": [
+            ["on", "on"],
+            ["off", "off"]
+          ]
+        },
+        { "type": "input_dummy" },
+        { "type": "input_statement", "name": "DO" }
+      ],
+      "previousStatement": null,
+      "nextStatement": null,
+      "colour": LOGIC_COLOUR,
+      "tooltip": "Executes the blocks inside if a switch at the current location is in the specified state.",
     },
     {
       "type": "maze_item_count",
@@ -276,6 +296,13 @@ export function init() {
   javascriptGenerator.forBlock['maze_if_item'] = function(block: Blockly.Block) {
     const type = block.getFieldValue('TYPE');
     const argument = `isItemPresent('${type}', 'block_id_${block.id}')`;
+    const branch = javascriptGenerator.statementToCode(block, 'DO');
+    return `if (${argument}) {\n${branch}}\n`;
+  };
+
+  javascriptGenerator.forBlock['maze_if_switch'] = function(block: Blockly.Block) {
+    const state = block.getFieldValue('STATE');
+    const argument = `isSwitchState('${state}', 'block_id_${block.id}')`;
     const branch = javascriptGenerator.statementToCode(block, 'DO');
     return `if (${argument}) {\n${branch}}\n`;
   };

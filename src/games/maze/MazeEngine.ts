@@ -142,6 +142,7 @@ export class MazeEngine implements IMazeEngine {
       interpreter.setProperty(globalObject, 'placeBlock', createWrapper(() => {}, true));
       interpreter.setProperty(globalObject, 'removeBlock', createWrapper(() => {}, true));
       interpreter.setProperty(globalObject, 'toggleSwitch', createWrapper(this.toggleSwitch.bind(this), true));
+      interpreter.setProperty(globalObject, 'isSwitchState', createWrapper(this.isSwitchState.bind(this), false));
     };
 
     this.interpreter = new Interpreter(userCode, initApi);
@@ -390,6 +391,16 @@ export class MazeEngine implements IMazeEngine {
         player.pose = 'Toggling';
 
         return true;
+    }
+    return false;
+  }
+
+  public isSwitchState(state: 'on' | 'off'): boolean {
+    const player = this.getActivePlayer();
+    const cell = this.currentState.worldGrid[`${player.x},${player.y},${player.z}`];
+    
+    if (cell && cell.type === 'switch' && cell.id) {
+        return this.currentState.interactiveStates[cell.id] === state;
     }
     return false;
   }
