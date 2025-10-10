@@ -1,0 +1,73 @@
+{
+  "id": "maze-3d-sequential-1",
+  "gameType": "maze",
+  "level": 1,
+  "titleKey": "Games.maze",
+  "descriptionKey": "Quest.maze3d.sequential1.description",
+  "translations": {
+    "en": {
+      "Quest.maze3d.sequential1.description": "Follow the straight path. You must collect the crystal first, then toggle the switch, and finally reach the goal."
+    },
+    "vi": {
+      "Quest.maze3d.sequential1.description": "Đi theo con đường thẳng. Bạn phải thu thập viên pha lê trước, sau đó bật công tắc, và cuối cùng là đi đến đích."
+    }
+  },
+  "supportedEditors": ["blockly", "monaco"],
+  "blocklyConfig": {
+    "toolbox": {
+      "kind": "categoryToolbox",
+      "contents": [
+        { "kind": "category", "name": "Sự kiện", "categorystyle": "procedure_category", "contents": [
+            { "kind": "block", "type": "maze_start" }
+        ]},
+        { "kind": "category", "name": "Di chuyển", "categorystyle": "turtle_category", "contents": [
+            { "kind": "block", "type": "maze_moveForward" }
+        ]},
+        { "kind": "category", "name": "Hành động", "categorystyle": "pond_category", "contents": [
+            { "kind": "block", "type": "maze_collect" },
+            { "kind": "block", "type": "maze_toggle_switch" }
+        ]}
+      ]
+    },
+    "maxBlocks": 8
+  },
+  "gameConfig": {
+    "type": "maze",
+    "renderer": "3d",
+    "blocks": [
+      { "modelKey": "ground.normal", "position": { "x": 0, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 2, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 4, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 5, "y": 0, "z": 0 } },
+      { "modelKey": "ground.normal", "position": { "x": 6, "y": 0, "z": 0 } }
+    ],
+    "players": [
+      {
+        "id": "player1",
+        "start": { "x": 0, "y": 1, "z": 0, "direction": 1 }
+      }
+    ],
+    "collectibles": [
+      { "id": "c1", "type": "crystal", "position": { "x": 2, "y": 1, "z": 0 } }
+    ],
+    "interactibles": [
+      {
+          "id": "switch_1",
+          "type": "switch",
+          "position": { "x": 4, "y": 1, "z": 0 },
+          "initialState": "off"
+      }
+    ],
+    "finish": { "x": 6, "y": 1, "z": 0 }
+  },
+  "solution": {
+    "type": "reach_target",
+    "optimalBlocks": 6
+  },
+  "sounds": {
+    "win": "/assets/maze/win.mp3",
+    "fail": "/assets/maze/fail_pegman.mp3"
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "id": "maze-3d-4",
+  "gameType": "maze",
+  "level": 4,
+  "titleKey": "Games.maze",
+  "descriptionKey": "Quest.maze3d.loop4.description",
+  "translations": {
+    "en": {
+      "Quest.maze3d.loop4.description": "This map has a symmetrical structure. Collect all 4 energy capsules and return to the starting point. Use loops and functions to find the most elegant solution!"
+    },
+    "vi": {
+      "Quest.maze3d.loop4.description": "Bản đồ này có cấu trúc đối xứng. Hãy thu thập cả 4 viên năng lượng và quay về điểm xuất phát. Tận dụng vòng lặp và hàm để tìm ra lời giải ngắn gọn nhất!"
+    }
+  },
+  "supportedEditors": ["blockly", "monaco"],
+  "blocklyConfig": {
+    "toolbox": {
+      "kind": "categoryToolbox",
+      "contents": [
+        { "kind": "category", "name": "Sự kiện", "categorystyle": "procedure_category", "contents": [
+            { "kind": "block", "type": "maze_start" }
+        ]},
+        { "kind": "category", "name": "Di chuyển", "categorystyle": "turtle_category", "contents": [
+            { "kind": "block", "type": "maze_moveForward" },
+            { "kind": "block", "type": "maze_turn" }
+        ]},
+        { "kind": "category", "name": "Vòng lặp", "categorystyle": "loops_category", "contents": [
+            { "kind": "block", "type": "maze_repeat", "inputs": { "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 4 }}}}}
+        ]},
+        { "kind": "category", "name": "Hành động", "categorystyle": "pond_category", "contents": [
+            { "kind": "block", "type": "maze_collect" }
+        ]},
+        { "kind": "sep" },
+        { "kind": "category", "name": "Hàm", "custom": "PROCEDURE", "categorystyle": "procedure_category" }
+      ]
+    },
+    "maxBlocks": 30
+  },
+  "gameConfig": {
+    "type": "maze",
+    "renderer": "3d",
+    "blocks": [
+      
+      { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 1 } },
+      { "modelKey": "ground.normal", "position": { "x": 2, "y": 0, "z": 1 } },
+      { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 1 } },
+      { "modelKey": "ground.normal", "position": { "x": 4, "y": 0, "z": 1 } },
+      { "modelKey": "ground.normal", "position": { "x": 5, "y": 0, "z": 1 } },
+      { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 3 } },
+      { "modelKey": "ground.normal", "position": { "x": 2, "y": 0, "z": 3 } },
+      { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 3 } },
+      { "modelKey": "ground.normal", "position": { "x": 4, "y": 0, "z": 3 } },
+      { "modelKey": "ground.normal", "position": { "x": 5, "y": 0, "z": 3 } },
+      { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 5 } },
+      { "modelKey": "ground.normal", "position": { "x": 2, "y": 0, "z": 5 } },
+      { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 5 } },
+      { "modelKey": "ground.normal", "position": { "x": 4, "y": 0, "z": 5 } },
+      { "modelKey": "ground.normal", "position": { "x": 5, "y": 0, "z": 5 } },
+      { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 2 } },
+      { "modelKey": "ground.normal", "position": { "x": 1, "y": 0, "z": 4 } },
+      { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 2 } },
+      { "modelKey": "ground.normal", "position": { "x": 3, "y": 0, "z": 4 } },
+      { "modelKey": "ground.normal", "position": { "x": 5, "y": 0, "z": 2 } },
+      { "modelKey": "ground.normal", "position": { "x": 5, "y": 0, "z": 4 } }
+    ],
+    "players": [
+      {
+        "id": "player1",
+        "start": { "x": 3, "y": 1, "z": 3, "direction": 1 }
+      }
+    ],
+    "collectibles": [
+      { "id": "c1", "type": "crystal", "position": { "x": 1, "y": 1, "z": 1 } },
+      { "id": "c2", "type": "crystal", "position": { "x": 5, "y": 1, "z": 1 } },
+      { "id": "c3", "type": "crystal", "position": { "x": 1, "y": 1, "z": 5 } },
+      { "id": "c4", "type": "crystal", "position": { "x": 5, "y": 1, "z": 5 } }
+    ],
+    "finish": { "x": 3, "y": 1, "z": 3 }
+  },
+  "solution": {
+    "type": "reach_target",
+    "optimalBlocks": 8
+  },
+  "sounds": {
+    "win": "/assets/maze/win.mp3",
+    "fail": "/assets/maze/fail_pegman.mp3"
+  }
+}

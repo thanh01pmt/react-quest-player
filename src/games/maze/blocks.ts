@@ -218,7 +218,8 @@ export function init() {
     return `${dir}('block_id_${block.id}');\n`;
   };
   javascriptGenerator.forBlock['maze_repeat'] = function(block: Blockly.Block) {
-    const repeats = javascriptGenerator.valueToCode(block, 'TIMES', Order.ASSIGNMENT) || '0';
+    // Sửa lỗi: Đảm bảo rằng `repeats` luôn là một chuỗi số hợp lệ.
+    let repeats = javascriptGenerator.valueToCode(block, 'TIMES', Order.ASSIGNMENT) || '0';
     let branch = javascriptGenerator.statementToCode(block, 'DO');
     if ((javascriptGenerator as any).INFINITE_LOOP_TRAP) {
       branch = (javascriptGenerator as any).INFINITE_LOOP_TRAP.replace(/%1/g, `'block_id_${block.id}'`) + branch;
