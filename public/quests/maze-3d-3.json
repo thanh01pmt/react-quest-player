@@ -3,15 +3,16 @@
   "gameType": "maze",
   "level": 3,
   "titleKey": "Games.maze",
-  "descriptionKey": "Quest.maze3d3.description",
+  "descriptionKey": "Quest.maze3d3.sandbox.description",
   "translations": {
     "en": {
-      "Quest.maze3d3.description": "Collect the crystal, use the portal to travel to the next island, step on the switch, and then reach the goal."
+      "Quest.maze3d3.sandbox.description": "Turn on all the switches to reach the goal. Use the full set of blocks, including loops and functions, to find the most efficient solution."
     },
     "vi": {
-      "Quest.maze3d3.description": "Thu thập viên pha lê, sử dụng cổng không gian để đến hòn đảo tiếp theo, dẫm lên công tắc, và sau đó đi tới đích."
+      "Quest.maze3d3.sandbox.description": "Bật tất cả các công tắc để đi tới đích. Hãy sử dụng bộ khối lệnh đầy đủ, bao gồm cả vòng lặp và hàm, để tìm ra lời giải hiệu quả nhất."
     }
   },
+  "supportedEditors": ["blockly", "monaco"],
   "blocklyConfig": {
     "toolbox": {
       "kind": "categoryToolbox",
@@ -22,17 +23,19 @@
               { "kind": "block", "type": "maze_turn" }
           ]},
           { "kind": "category", "name": "Loops", "categorystyle": "loops_category", "contents": [
-              { "kind": "block", "type": "maze_forever" },
+              { "kind": "block", "type": "controls_whileUntil" },
               { "kind": "block", "type": "maze_repeat", "inputs": { "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 5 }}}}}
           ]},
           { "kind": "category", "name": "Logic", "categorystyle": "logic_category", "contents": [
-              { "kind": "block", "type": "maze_if" },
-              { "kind": "block", "type": "maze_ifElse" },
-              { "kind": "block", "type": "maze_if_item" },
-              { "kind": "block", "type": "maze_if_switch" },
+              { "kind": "block", "type": "controls_if" },
               { "kind": "block", "type": "logic_compare" },
               { "kind": "block", "type": "logic_operation" },
-              { "kind": "block", "type": "logic_boolean" }
+              { "kind": "block", "type": "logic_negate" },
+              { "kind": "block", "type": "logic_boolean" },
+              { "kind": "block", "type": "maze_is_path" },
+              { "kind": "block", "type": "maze_is_item_present" },
+              { "kind": "block", "type": "maze_is_switch_state" },
+              { "kind": "block", "type": "maze_at_finish" }
           ]},
           { "kind": "category", "name": "Actions", "categorystyle": "pond_category", "contents": [
               { "kind": "block", "type": "maze_collect" },
@@ -100,7 +103,7 @@
     },
   "solution": {
     "type": "reach_target",
-    "optimalBlocks": 12
+    "optimalBlocks": 8
   },
   "sounds": {
     "win": "/assets/maze/win.mp3",

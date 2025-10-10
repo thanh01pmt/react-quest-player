@@ -19,7 +19,7 @@ export function init() {
   const MOVEMENT_COLOUR = '#CF63CF';
   const LOOPS_COLOUR = '#5BA55B';
   const LOGIC_COLOUR = '#5B80A5';
-  const ACTION_COLOUR = '#A5745B'; // New color for actions like collect/build
+  const ACTION_COLOUR = '#A5745B';
 
   const LEFT_TURN = ' ↺';
   const RIGHT_TURN = ' ↻';
@@ -30,9 +30,9 @@ export function init() {
   ];
 
   const PATH_DIRECTIONS: [string, string][] = [
-    [i18n.t('Maze.pathAhead'), 'isPathForward'],
-    [i18n.t('Maze.pathLeft'), 'isPathLeft'],
-    [i18n.t('Maze.pathRight'), 'isPathRight'],
+    [i18n.t('Maze.pathAhead'), 'path ahead'],
+    [i18n.t('Maze.pathLeft'), 'path to the left'],
+    [i18n.t('Maze.pathRight'), 'path to the right'],
   ];
 
   const ITEM_TYPES: [string, string][] = [
@@ -57,7 +57,7 @@ export function init() {
   };
 
   Blockly.defineBlocksWithJsonArray([
-    // --- Existing Blocks ---
+    // --- Movement & Action Blocks (Unchanged) ---
     {
       "type": "maze_moveForward",
       "message0": i18n.t('Maze.moveForward'),
@@ -88,34 +88,24 @@ export function init() {
       "helpUrl": helpClickHandler,
     },
     {
-      "type": "maze_if",
-      "message0": "%{BKY_CONTROLS_IF_MSG_IF} %1 %2 %{BKY_CONTROLS_IF_MSG_THEN} %3",
-      "args0": [
-        { "type": "field_dropdown", "name": "DIR", "options": PATH_DIRECTIONS },
-        { "type": "input_dummy" },
-        { "type": "input_statement", "name": "DO" },
-      ],
+      "type": "maze_collect",
+      "message0": "collect item",
       "previousStatement": null,
       "nextStatement": null,
-      "colour": LOGIC_COLOUR,
-      "tooltip": i18n.t('Maze.ifTooltip'),
+      "colour": ACTION_COLOUR,
+      "tooltip": "Collects the item at the current location.",
       "helpUrl": helpClickHandler,
     },
     {
-      "type": "maze_ifElse",
-      "message0": "%{BKY_CONTROLS_IF_MSG_IF} %1 %2 %{BKY_CONTROLS_IF_MSG_THEN} %3 %{BKY_CONTROLS_IF_MSG_ELSE} %4",
-      "args0": [
-        { "type": "field_dropdown", "name": "DIR", "options": PATH_DIRECTIONS },
-        { "type": "input_dummy" },
-        { "type": "input_statement", "name": "DO" },
-        { "type": "input_statement", "name": "ELSE" },
-      ],
+      "type": "maze_toggle_switch",
+      "message0": "toggle switch",
       "previousStatement": null,
       "nextStatement": null,
-      "colour": LOGIC_COLOUR,
-      "tooltip": i18n.t('Maze.ifelseTooltip'),
+      "colour": ACTION_COLOUR,
+      "tooltip": "Toggles the switch at the current location.",
       "helpUrl": helpClickHandler,
     },
+    // --- Loop Blocks ---
     {
       "type": "maze_forever",
       "message0": `${i18n.t('Maze.repeatUntil')} %1 %2 ${i18n.t('Maze.doCode')} %3`,
@@ -129,76 +119,60 @@ export function init() {
       "tooltip": i18n.t('Maze.whileTooltip'),
       "helpUrl": helpClickHandler,
     },
-    // --- Custom Repeat Block ---
     {
       "type": "maze_repeat",
       "message0": `${i18n.t('Controls.repeatTitle')} %1 ${i18n.t('Controls.repeatInputDo')}`,
-      "args0": [
-        {
-          "type": "input_value",
-          "name": "TIMES",
-          "check": "Number"
-        }
-      ],
+      "args0": [{ "type": "input_value", "name": "TIMES", "check": "Number" }],
       "message1": "%1",
-      "args1": [
-        { "type": "input_statement", "name": "DO" }
-      ],
+      "args1": [{ "type": "input_statement", "name": "DO" }],
       "previousStatement": null,
       "nextStatement": null,
       "colour": LOOPS_COLOUR,
-      "tooltip": "Thực hiện các lệnh bên trong một số lần nhất định."
+      "tooltip": "Thực hiện các lệnh bên trong một số lần nhất định.",
+      "helpUrl": helpClickHandler,
     },
-    // --- New Blocks ---
+    // --- NEW SENSING BLOCKS (BOOLEAN OUTPUT) ---
     {
-      "type": "maze_collect",
-      "message0": "collect item",
-      "previousStatement": null,
-      "nextStatement": null,
-      "colour": ACTION_COLOUR,
-      "tooltip": "Collects the item at the current location.",
-    },
-    {
-      "type": "maze_toggle_switch",
-      "message0": "toggle switch",
-      "previousStatement": null,
-      "nextStatement": null,
-      "colour": ACTION_COLOUR,
-      "tooltip": "Toggles the switch at the current location.",
-    },
-    {
-      "type": "maze_if_item",
-      "message0": "if %1 at current location %2 %3",
+      "type": "maze_is_path",
+      "message0": "%1",
       "args0": [
-        { "type": "field_dropdown", "name": "TYPE", "options": ITEM_TYPES },
-        { "type": "input_dummy" },
-        { "type": "input_statement", "name": "DO" }
+        { "type": "field_dropdown", "name": "DIR", "options": PATH_DIRECTIONS }
       ],
-      "previousStatement": null,
-      "nextStatement": null,
+      "output": "Boolean",
       "colour": LOGIC_COLOUR,
-      "tooltip": "Executes the blocks inside if an item of the specified type is at the current location.",
+      "tooltip": "Returns true if there is a path in the specified direction.",
+      "helpUrl": helpClickHandler,
     },
     {
-      "type": "maze_if_switch",
-      "message0": "if switch at current location is %1 %2 %3",
+      "type": "maze_is_item_present",
+      "message0": "%1 at current location",
       "args0": [
-        {
-          "type": "field_dropdown",
-          "name": "STATE",
-          "options": [
-            ["on", "on"],
-            ["off", "off"]
-          ]
-        },
-        { "type": "input_dummy" },
-        { "type": "input_statement", "name": "DO" }
+        { "type": "field_dropdown", "name": "TYPE", "options": ITEM_TYPES }
       ],
-      "previousStatement": null,
-      "nextStatement": null,
+      "output": "Boolean",
       "colour": LOGIC_COLOUR,
-      "tooltip": "Executes the blocks inside if a switch at the current location is in the specified state.",
+      "tooltip": "Returns true if an item of the specified type is at the current location.",
+      "helpUrl": helpClickHandler,
     },
+    {
+      "type": "maze_is_switch_state",
+      "message0": "switch at current location is %1",
+      "args0": [
+        { "type": "field_dropdown", "name": "STATE", "options": [["on", "on"], ["off", "off"]] }
+      ],
+      "output": "Boolean",
+      "colour": LOGIC_COLOUR,
+      "tooltip": "Returns true if a switch at the current location is in the specified state.",
+      "helpUrl": helpClickHandler,
+    },
+    {
+      "type": "maze_at_finish",
+      "message0": "at finish location",
+      "output": "Boolean",
+      "colour": LOGIC_COLOUR,
+      "tooltip": "Returns true if the player is at the finish location.",
+    },
+    // --- Value Blocks (Unchanged) ---
     {
       "type": "maze_item_count",
       "message0": "count of %1",
@@ -208,38 +182,11 @@ export function init() {
       "output": "Number",
       "colour": ACTION_COLOUR,
       "tooltip": "Returns the number of collected items of the specified type.",
+      "helpUrl": helpClickHandler,
     },
-    {
-        "type": "maze_place_block",
-        "message0": "place block forward",
-        "previousStatement": null,
-        "nextStatement": null,
-        "colour": ACTION_COLOUR,
-        "tooltip": "Places a new block in front of the player.",
-    },
-    {
-        "type": "maze_remove_block",
-        "message0": "remove block forward",
-        "previousStatement": null,
-        "nextStatement": null,
-        "colour": ACTION_COLOUR,
-        "tooltip": "Removes the block in front of the player.",
-    },
-    {
-        "type": "maze_if_block",
-        "message0": "if block is forward %1 %2",
-        "args0": [
-            { "type": "input_dummy" },
-            { "type": "input_statement", "name": "DO" }
-        ],
-        "previousStatement": null,
-        "nextStatement": null,
-        "colour": LOGIC_COLOUR,
-        "tooltip": "Checks if there is a block directly in front of the player.",
-    }
   ]);
 
-  // --- Existing Generators ---
+  // --- Unchanged Generators ---
   javascriptGenerator.forBlock['maze_moveForward'] = function(block: Blockly.Block) {
     return `moveForward('block_id_${block.id}');\n`;
   };
@@ -250,29 +197,6 @@ export function init() {
     const dir = block.getFieldValue('DIR');
     return `${dir}('block_id_${block.id}');\n`;
   };
-  javascriptGenerator.forBlock['maze_if'] = function(block: Blockly.Block) {
-    const dir = block.getFieldValue('DIR');
-    const argument = `${dir}('block_id_${block.id}')`;
-    const branch = javascriptGenerator.statementToCode(block, 'DO');
-    return `if (${argument}) {\n${branch}}\n`;
-  };
-  javascriptGenerator.forBlock['maze_ifElse'] = function(block: Blockly.Block) {
-    const dir = block.getFieldValue('DIR');
-    const argument = `${dir}('block_id_${block.id}')`;
-    const branch0 = javascriptGenerator.statementToCode(block, 'DO');
-    const branch1 = javascriptGenerator.statementToCode(block, 'ELSE');
-    return `if (${argument}) {\n${branch0}} else {\n${branch1}}\n`;
-  };
-  javascriptGenerator.forBlock['maze_forever'] = function(block: Blockly.Block) {
-    let branch = javascriptGenerator.statementToCode(block, 'DO');
-    if ((javascriptGenerator as any).INFINITE_LOOP_TRAP) {
-      branch = (javascriptGenerator as any).INFINITE_LOOP_TRAP.replace(/%1/g,
-          `'block_id_${block.id}'`) + branch;
-    }
-    return `while (notDone('block_id_${block.id}')) {\n${branch}}\n`;
-  };
-  
-  // --- Custom Repeat Generator ---
   javascriptGenerator.forBlock['maze_repeat'] = function(block: Blockly.Block) {
     const repeats = javascriptGenerator.valueToCode(block, 'TIMES', Order.ASSIGNMENT) || '0';
     let branch = javascriptGenerator.statementToCode(block, 'DO');
@@ -283,47 +207,55 @@ export function init() {
     const code = `for (let ${loopVar} = 0; ${loopVar} < ${repeats}; ${loopVar}++) {\n${branch}}\n`;
     return code;
   };
-
-  // --- New Generators ---
   javascriptGenerator.forBlock['maze_collect'] = function(block: Blockly.Block) {
     return `collectItem('block_id_${block.id}');\n`;
   };
-
   javascriptGenerator.forBlock['maze_toggle_switch'] = function(block: Blockly.Block) {
     return `toggleSwitch('block_id_${block.id}');\n`;
   };
-
-  javascriptGenerator.forBlock['maze_if_item'] = function(block: Blockly.Block) {
-    const type = block.getFieldValue('TYPE');
-    const argument = `isItemPresent('${type}', 'block_id_${block.id}')`;
-    const branch = javascriptGenerator.statementToCode(block, 'DO');
-    return `if (${argument}) {\n${branch}}\n`;
-  };
-
-  javascriptGenerator.forBlock['maze_if_switch'] = function(block: Blockly.Block) {
-    const state = block.getFieldValue('STATE');
-    const argument = `isSwitchState('${state}', 'block_id_${block.id}')`;
-    const branch = javascriptGenerator.statementToCode(block, 'DO');
-    return `if (${argument}) {\n${branch}}\n`;
-  };
-
   javascriptGenerator.forBlock['maze_item_count'] = function(block: Blockly.Block) {
     const type = block.getFieldValue('TYPE');
     const code = `getItemCount('${type}', 'block_id_${block.id}')`;
     return [code, Order.FUNCTION_CALL];
   };
 
-  javascriptGenerator.forBlock['maze_place_block'] = function(block: Blockly.Block) {
-    return `placeBlock('block_id_${block.id}');\n`;
+  // --- RESTORED JAVASCRIPT GENERATOR ---
+  javascriptGenerator.forBlock['maze_forever'] = function(block: Blockly.Block) {
+    let branch = javascriptGenerator.statementToCode(block, 'DO');
+    if ((javascriptGenerator as any).INFINITE_LOOP_TRAP) {
+      branch = (javascriptGenerator as any).INFINITE_LOOP_TRAP.replace(/%1/g,
+          `'block_id_${block.id}'`) + branch;
+    }
+    return `while (notDone('block_id_${block.id}')) {\n${branch}}\n`;
   };
 
-  javascriptGenerator.forBlock['maze_remove_block'] = function(block: Blockly.Block) {
-    return `removeBlock('block_id_${block.id}');\n`;
+  // --- NEW JAVASCRIPT GENERATORS FOR SENSING BLOCKS ---
+  type PathDirectionKey = 'path ahead' | 'path to the left' | 'path to the right';
+  javascriptGenerator.forBlock['maze_is_path'] = function(block: Blockly.Block) {
+    const dir = block.getFieldValue('DIR') as PathDirectionKey;
+    const apiCall = {
+      'path ahead': 'isPathForward',
+      'path to the left': 'isPathLeft',
+      'path to the right': 'isPathRight',
+    }[dir];
+    const code = `${apiCall}('block_id_${block.id}')`;
+    return [code, Order.FUNCTION_CALL];
   };
 
-  javascriptGenerator.forBlock['maze_if_block'] = function(block: Blockly.Block) {
-    const argument = `isBlockForward('block_id_${block.id}')`; // Assuming this API will exist
-    const branch = javascriptGenerator.statementToCode(block, 'DO');
-    return `if (${argument}) {\n${branch}}\n`;
+  javascriptGenerator.forBlock['maze_is_item_present'] = function(block: Blockly.Block) {
+    const type = block.getFieldValue('TYPE');
+    const code = `isItemPresent('${type}', 'block_id_${block.id}')`;
+    return [code, Order.FUNCTION_CALL];
+  };
+
+  javascriptGenerator.forBlock['maze_is_switch_state'] = function(block: Blockly.Block) {
+    const state = block.getFieldValue('STATE');
+    const code = `isSwitchState('${state}', 'block_id_${block.id}')`;
+    return [code, Order.FUNCTION_CALL];
+  };
+
+  javascriptGenerator.forBlock['maze_at_finish'] = function(block: Blockly.Block) {
+    const code = `!notDone('block_id_${block.id}')`;
+    return [code, Order.LOGICAL_NOT];
   };
 }
