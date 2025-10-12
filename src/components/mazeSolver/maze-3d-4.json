@@ -75,7 +75,7 @@
       { "id": "c3", "type": "crystal", "position": { "x": 1, "y": 1, "z": 5 } },
       { "id": "c4", "type": "crystal", "position": { "x": 5, "y": 1, "z": 5 } }
     ],
-    "finish": { "x": 3, "y": 1, "z": 3 }
+    "finish": { "x": 1, "y": 1, "z": 3 }
   },
   "solution": {
     "type": "reach_target",
